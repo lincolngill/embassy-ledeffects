@@ -13,6 +13,9 @@ frame rate task - strip::frame_rate_task
         Current main loop delay (ms).
         Calculated (FPS - FPS_TARGET) difference.
         New delay calculation.
+        Tolerance = FPS varaince observed when the new delay calc == current delay.
+            Delay is not adjusted again unless subsequent FPS variance exceeds tolerance.
+            Tolerance should be <= 3 FPS but will be > 0 when the FPS target is high and the delay is low.
         Total frame count.
 
 On Board LED toggle task:
@@ -68,7 +71,7 @@ async fn main(spawner: Spawner) {
     let program = PioWs2812Program::new(&mut common);
     let mut ws2812 = PioWs2812::new(&mut common, sm0, p.DMA_CH0, Irqs, p.PIN_16, &program);
 
-    let mut strip = Strip::<NUM_LEDS>::new(FPS_TARGET);
+    let mut strip = Strip::<NUM_LEDS>::new();
     let mut effect = effect::Random::<NUM_LEDS>::new(&strip);
     loop {
         effect.nextframe(&mut strip).unwrap();
