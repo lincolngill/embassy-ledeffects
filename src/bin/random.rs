@@ -41,8 +41,9 @@ use embassy_rp::pio_programs::ws2812::{PioWs2812, PioWs2812Program};
 use embassy_time::Timer;
 use {defmt_rtt as _, panic_probe as _};
 
-const TARGET_FPS: u32 = 60;
-const FPS_REFRESH_SECS: u32 = 5;
+const NUM_LEDS: usize = 120;
+const FPS_TARGET: u32 = 60;
+const FPS_ADJUST_SECS: u32 = 5;
 
 bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => InterruptHandler<PIO0>;
@@ -56,8 +57,8 @@ async fn main(spawner: Spawner) {
 
     spawner.spawn(unwrap!(toggle_led(Output::new(p.PIN_25, Level::Low))));
     spawner.spawn(unwrap!(embassy_ledeffects::strip::frame_rate_task(
-        FPS_REFRESH_SECS,
-        TARGET_FPS
+        FPS_ADJUST_SECS,
+        FPS_TARGET
     )));
 
     let Pio {
@@ -67,8 +68,8 @@ async fn main(spawner: Spawner) {
     let program = PioWs2812Program::new(&mut common);
     let mut ws2812 = PioWs2812::new(&mut common, sm0, p.DMA_CH0, Irqs, p.PIN_16, &program);
 
-    let mut strip = Strip::new(TARGET_FPS);
-    let mut effect = effect::Random::new();
+    let mut strip = Strip::<NUM_LEDS>::new(FPS_TARGET);
+    let mut effect = effect::Random::<NUM_LEDS>::new();
     loop {
         effect.nextframe(&mut strip).unwrap();
         ws2812.write(&strip.leds).await;
