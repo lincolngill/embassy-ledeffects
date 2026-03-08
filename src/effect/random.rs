@@ -4,7 +4,9 @@ use embassy_rp::clocks::RoscRng;
 use smart_leds::RGB8;
 
 pub struct Random<const N: usize> {
+    // Keep a separate timeout value for each pixel.
     led_timeout: [u64; N],
+    // The rp2350 random number generator.
     rng: RoscRng,
 }
 
@@ -22,6 +24,8 @@ impl<const N: usize> Random<N> {
 }
 
 impl<const N: usize> EffectIterator for Random<N> {
+    // Random colours
+    // Change each pixel at random times. Between 500 - 2540ms.
     fn nextframe<const S: usize>(&mut self, strip: &mut Strip<S>) -> Option<()> {
         let now = embassy_time::Instant::now().as_millis();
         for i in 0..N {
