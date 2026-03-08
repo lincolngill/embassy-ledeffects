@@ -9,7 +9,11 @@ pub struct Random<const N: usize> {
 }
 
 impl<const N: usize> Random<N> {
-    pub fn new() -> Self {
+    pub fn new<const S: usize>(_: &Strip<S>) -> Self {
+        // Use size of Strip to make sure Random is the same size.
+        if N != S {
+            panic!("Random<{}> must be the same size as Strip<{}>", N, S);
+        }
         Self {
             led_timeout: [0; N],
             rng: RoscRng,
@@ -20,7 +24,7 @@ impl<const N: usize> Random<N> {
 impl<const N: usize> EffectIterator for Random<N> {
     fn nextframe<const S: usize>(&mut self, strip: &mut Strip<S>) -> Option<()> {
         let now = embassy_time::Instant::now().as_millis();
-        for i in 0..S {
+        for i in 0..N {
             if self.led_timeout[i] < now {
                 let rn = self.rng.next_u32();
                 strip.leds[i] = RGB8 {
