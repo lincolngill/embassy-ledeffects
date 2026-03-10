@@ -3,6 +3,7 @@ Main task:
     Applies a single frame effect to the LED strip.
     Writes the strip via PIO.
     Sleeps for a short delay.
+    If the button has been pressed rotate the effect that is being aopplied.
     loops back to do the next frame.
 
 frame rate task - strip::frame_rate_task
@@ -18,6 +19,10 @@ frame rate task - strip::frame_rate_task
             Tolerance should be <= 3 FPS but will be > 0 when the FPS target is high and the delay is low.
         Total frame count.
 
+Button task (GPIO 15 - Input with pull down):
+    Waits for button press. (falling edge. I.e. button released.)
+    Signals main task to rotate the effect.
+
 On Board LED toggle task:
     Toggles Pin 25 - Sign of life.
 
@@ -26,6 +31,8 @@ Effects:
         Per pixel random period (500 - 2540 ms) between colour change.
         Achieves 62 FPS, with a 12ms main loop sleep delay, for a 120 LED strip.
             Uses ~10.5W = ~2.0A x 5V
+    Wheel - Colour wheel effect.
+    Off - All LEDs off.
  */
 #![no_std]
 #![no_main]

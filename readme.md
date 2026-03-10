@@ -44,6 +44,8 @@ async fn main(spawner: Spawner) {
 
 ## Effects
 * Random
+* Wheel
+* Off
 * _More to come_
 
 ### Random Effect
