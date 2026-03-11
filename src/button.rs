@@ -2,13 +2,18 @@ use embassy_rp::gpio::{Input, Level};
 use embassy_time::{Duration, Timer};
 
 pub struct Button<'a> {
+    pub id: u8,
     input: Input<'a>,
     debounce: Duration,
 }
 
 impl<'a> Button<'a> {
-    pub fn new(input: Input<'a>, debounce: Duration) -> Self {
-        Self { input, debounce }
+    pub fn new(id: u8, input: Input<'a>, debounce: Duration) -> Self {
+        Self {
+            id,
+            input,
+            debounce,
+        }
     }
 
     pub async fn any_edge(&mut self) -> Level {

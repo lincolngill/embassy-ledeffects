@@ -2,13 +2,24 @@ use crate::Strip;
 use crate::effect::EffectIterator;
 use smart_leds::RGB8;
 
+const MAX_SPEED: u16 = 10;
 pub struct Wheel {
     pos: u16,
+    speed: u16,
 }
 
 impl Wheel {
-    pub fn new() -> Self {
-        Self { pos: 0 }
+    pub fn new(speed: Option<u16>) -> Self {
+        let s = speed.unwrap_or(1);
+        assert!(s > 0, "Speed must be between 1 and {}", MAX_SPEED);
+        Self { pos: 0, speed: s }
+    }
+    pub fn speedup(&mut self) -> u16 {
+        self.speed += 1;
+        if self.speed >= MAX_SPEED {
+            self.speed = 1;
+        }
+        self.speed
     }
 }
 
@@ -32,7 +43,7 @@ impl EffectIterator for Wheel {
         for i in 0..N {
             strip.leds[i] = wheel((((i * 256) as u16 / N as u16 + self.pos) & 255) as u8);
         }
-        self.pos += 1;
+        self.pos += self.speed;
         if self.pos >= 256 * 5 {
             self.pos = 0;
         }

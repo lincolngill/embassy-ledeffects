@@ -72,7 +72,7 @@ async fn main(spawner: Spawner) {
     let mut ws2812 = PioWs2812::new(&mut common, sm0, p.DMA_CH0, Irqs, p.PIN_16, &program);
 
     let mut strip = Strip::<NUM_LEDS>::new();
-    let mut effect = effect::Random::<NUM_LEDS>::new(&strip);
+    let mut effect = effect::Random::<NUM_LEDS>::new(&strip, None);
     loop {
         effect.nextframe(&mut strip).unwrap();
         ws2812.write(&strip.leds).await;

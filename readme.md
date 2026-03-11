@@ -45,11 +45,29 @@ async fn main(spawner: Spawner) {
 ## Effects
 * Random
 * Wheel
-* Off
+* OneColour
 * _More to come_
+
+Refer to effect_button.rs binary for example of all effects.
 
 ### Random Effect
 
 Random colour change at random times.
 
 Per pixel random period (500 - 2540 ms) between colour change.
+
+### Wheel Effect
+
+Rotate each pixel through shades of red, green and blue.
+
+Each pixel offset on wheel position.
+
+### OneColour
+
+All pixels set to a single colour. Can alternate between Black and White to turn off and on entire strip.
+
+## Binary Crates
+| Example | Description |
+|---------|-------------|
+| random.rs | Just the random effect. |
+| effect_button.rs | Rotates through all effects and second button adjusts an attribute of the effect. |
