@@ -1,12 +1,33 @@
 # Embassy Pico 2 WS2812 LED Strip Effects
 
-LED effects library and binary examples. For Raspberry Pico 2. Using Embassy embeded framework.
+LED effects library and binary examples. For Raspberry Pico 2. Using Embassy embedded framework.
 
-## Example
+## Effects
+
+| Effect | Description | Effect Button 2 |
+|--------|-------------|----------|
+| Random | Random colour changes at random times. | Increase random delay per pixel. |
+| Wheel | Rotate each pixel through shades of red, green and blue. | Speed up rotation |
+| OneColour | All pixels set to a single colour. | Alternate between Off (Black) & On (White). |
+| Fire | Simulated fire. | TBA |
+
+_More to come_
+
+Refer to effect_button.rs binary for example of all effects.
+
+## Binary Crates
+
+| Example | Description |
+|---------|-------------|
+| effect_buttons.rs | Rotates through all effects and second button adjusts an attribute of the effect. |
+| random.rs | Just the random effect. Simple example. |
+
+## Example - bin/random.rs
 
 ```rust
+...
 const NUM_LEDS: usize = 120;
-const FPS_TARGET: u32 = 60;
+const FPS_TARGET: u32 = 30;
 const FPS_ADJUST_SECS: u32 = 5;
 
 bind_interrupts!(struct Irqs {
@@ -40,34 +61,5 @@ async fn main(spawner: Spawner) {
         Timer::after(strip.frame_delay()).await;
     }
 }
+...
 ```
-
-## Effects
-* Random
-* Wheel
-* OneColour
-* _More to come_
-
-Refer to effect_button.rs binary for example of all effects.
-
-### Random Effect
-
-Random colour change at random times.
-
-Per pixel random period (500 - 2540 ms) between colour change.
-
-### Wheel Effect
-
-Rotate each pixel through shades of red, green and blue.
-
-Each pixel offset on wheel position.
-
-### OneColour
-
-All pixels set to a single colour. Can alternate between Black and White to turn off and on entire strip.
-
-## Binary Crates
-| Example | Description |
-|---------|-------------|
-| random.rs | Just the random effect. |
-| effect_button.rs | Rotates through all effects and second button adjusts an attribute of the effect. |

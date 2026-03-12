@@ -16,7 +16,7 @@ impl Wheel {
     }
     pub fn speedup(&mut self) -> u16 {
         self.speed += 1;
-        if self.speed >= MAX_SPEED {
+        if self.speed > MAX_SPEED {
             self.speed = 1;
         }
         self.speed

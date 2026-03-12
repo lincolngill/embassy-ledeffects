@@ -20,12 +20,12 @@ frame rate task - strip::frame_rate_task
             Tolerance should be <= 3 FPS but will be > 0 when the FPS target is high and the delay is low.
         Total frame count.
 
-Button 1 task (GPIO 14 - Input with pull down):
-    Waits for button press. (falling edge. I.e. button released.)
+Button 1 task (GPIO 14 - Input with pull up):
+    Waits for button press. (Low input)
     Signals main task to rotate the effect.
 
-Button 2 task (GPIO 15 - Input with pull down):
-    Waits for button press. (falling edge. I.e. button released.)
+Button 2 task (GPIO 15 - Input with pull up):
+    Waits for button press. (Low input)
     Signals main task to alter attribute of current effect.
 
 On Board LED toggle task:
@@ -41,6 +41,7 @@ Effects:
         Button 2 - Speeds up the effect
     OneColour - All LEDs Black (Off).
         Button 2 - Changes colour to White (On)
+    Fire
  */
 #![no_std]
 #![no_main]
@@ -59,12 +60,12 @@ use embassy_rp::pio::{InterruptHandler, Pio};
 use embassy_rp::pio_programs::ws2812::{PioWs2812, PioWs2812Program};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::signal::Signal;
-use embassy_time::{Duration, Timer};
+use embassy_time::Timer;
 use smart_leds::colors;
 use {defmt_rtt as _, panic_probe as _};
 
 const NUM_LEDS: usize = 120;
-const FPS_TARGET: u32 = 60;
+const FPS_TARGET: u32 = 30;
 const FPS_ADJUST_SECS: u32 = 5;
 
 bind_interrupts!(struct Irqs {
@@ -73,24 +74,21 @@ bind_interrupts!(struct Irqs {
 });
 
 static BTN_PRESSED: Signal<ThreadModeRawMutex, u8> = Signal::new();
-const BTN_DEBOUNCE: Duration = Duration::from_millis(100);
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
-    info!("Start - Off");
+    info!("Start - OneColour Black");
     let p = embassy_rp::init(Default::default());
 
     spawner.spawn(unwrap!(toggle_led(Output::new(p.PIN_25, Level::Low))));
     spawner.spawn(unwrap!(frame_rate_task(FPS_ADJUST_SECS, FPS_TARGET)));
     spawner.spawn(unwrap!(button_task(Button::new(
         1,
-        Input::new(p.PIN_14, gpio::Pull::Down),
-        BTN_DEBOUNCE,
+        Input::new(p.PIN_14, gpio::Pull::Up),
     ))));
     spawner.spawn(unwrap!(button_task(Button::new(
         2,
-        Input::new(p.PIN_15, gpio::Pull::Down),
-        BTN_DEBOUNCE,
+        Input::new(p.PIN_15, gpio::Pull::Up),
     ))));
 
     let Pio {
@@ -106,17 +104,30 @@ async fn main(spawner: Spawner) {
         Random,
         Wheel,
         OneColour,
+        Fire,
+    }
+    impl defmt::Format for Effect {
+        fn format(&self, fmt: Formatter) {
+            match self {
+                Effect::Random => defmt::write!(fmt, "Random"),
+                Effect::Wheel => defmt::write!(fmt, "Wheel"),
+                Effect::OneColour => defmt::write!(fmt, "OneColour"),
+                Effect::Fire => defmt::write!(fmt, "Fire"),
+            }
+        }
     }
 
     let mut random_effect = effect::Random::<NUM_LEDS>::new(&strip, None);
     let mut wheel_effect = effect::Wheel::new(None);
     let mut onecolour_effect = effect::OneColour::new(colors::BLACK);
+    let mut fire_effect = effect::Fire::<NUM_LEDS>::new(&strip, None, None);
     let mut effect = Effect::OneColour;
     loop {
         match effect {
             Effect::Random => random_effect.nextframe(&mut strip).unwrap(),
             Effect::Wheel => wheel_effect.nextframe(&mut strip).unwrap(),
             Effect::OneColour => onecolour_effect.nextframe(&mut strip).unwrap(),
+            Effect::Fire => fire_effect.nextframe(&mut strip).unwrap(),
         }
         ws2812.write(&strip.leds).await;
         Timer::after(strip.frame_delay()).await;
@@ -127,17 +138,18 @@ async fn main(spawner: Spawner) {
                 match effect {
                     Effect::Random => {
                         effect = Effect::Wheel;
-                        debug!("Effect = Wheel");
                     }
                     Effect::Wheel => {
                         effect = Effect::OneColour;
-                        debug!("Effect = OneColour");
                     }
                     Effect::OneColour => {
+                        effect = Effect::Fire;
+                    }
+                    Effect::Fire => {
                         effect = Effect::Random;
-                        debug!("Effect = Random");
                     }
                 }
+                debug!("Effect: {}", effect);
             }
             if btn_id == 2 {
                 // Change current effect
@@ -161,6 +173,9 @@ async fn main(spawner: Spawner) {
                             onecolour_effect.colour.b
                         );
                     }
+                    Effect::Fire => {
+                        debug!("btn2 Fire");
+                    }
                 }
             }
         }
@@ -183,7 +198,8 @@ async fn toggle_led(mut led: Output<'static>) {
 #[embassy_executor::task(pool_size = 2)]
 async fn button_task(mut btn: Button<'static>) {
     loop {
-        btn.falling_edge().await;
-        BTN_PRESSED.signal(btn.id);
+        if btn.level_change().await == Level::Low {
+            BTN_PRESSED.signal(btn.id);
+        }
     }
 }

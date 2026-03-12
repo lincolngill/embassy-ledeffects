@@ -5,6 +5,8 @@ mod wheel;
 pub use wheel::Wheel;
 mod one_colour;
 pub use one_colour::OneColour;
+mod fire;
+pub use fire::Fire;
 
 // Triat for generating the next frame of updates on the Strip.
 pub trait EffectIterator {

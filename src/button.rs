@@ -1,22 +1,24 @@
 use embassy_rp::gpio::{Input, Level};
 use embassy_time::{Duration, Timer};
 
+const BTN_DEBOUNCE: Duration = Duration::from_millis(20);
+
 pub struct Button<'a> {
     pub id: u8,
     input: Input<'a>,
-    debounce: Duration,
+    pub debounce: Duration,
 }
 
 impl<'a> Button<'a> {
-    pub fn new(id: u8, input: Input<'a>, debounce: Duration) -> Self {
+    pub fn new(id: u8, input: Input<'a>) -> Self {
         Self {
             id,
             input,
-            debounce,
+            debounce: BTN_DEBOUNCE,
         }
     }
 
-    pub async fn any_edge(&mut self) -> Level {
+    pub async fn level_change(&mut self) -> Level {
         loop {
             let l1 = self.input.get_level();
 
@@ -29,10 +31,5 @@ impl<'a> Button<'a> {
                 break l2;
             }
         }
-    }
-
-    pub async fn falling_edge(&mut self) {
-        self.input.wait_for_falling_edge().await;
-        Timer::after(self.debounce).await;
     }
 }
