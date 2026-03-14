@@ -41,6 +41,8 @@ Effects:
         Button 2 - Speeds up the effect
     OneColour - All LEDs Black (Off).
         Button 2 - Changes colour to White (On)
+    FireGrid - Fire effect in columns and rows
+        Can be vertical or horizontal.
     Fire
  */
 #![no_std]
@@ -50,7 +52,7 @@ use defmt::*;
 use embassy_executor::Spawner;
 use embassy_ledeffects::{
     Button, Strip,
-    effect::{self, EffectIterator},
+    effect::{self, Effect, EffectIterator},
     strip::frame_rate_task,
 };
 use embassy_rp::bind_interrupts;
@@ -64,9 +66,14 @@ use embassy_time::Timer;
 use smart_leds::colors;
 use {defmt_rtt as _, panic_probe as _};
 
-const NUM_LEDS: usize = 120;
+const NUM_LEDS: usize = 256;
 const FPS_TARGET: u32 = 30;
 const FPS_ADJUST_SECS: u32 = 5;
+
+const HFIREGRID_COLS: usize = 8;
+const HFIREGRID_ROWS: usize = NUM_LEDS / HFIREGRID_COLS;
+const VFIREGRID_COLS: usize = 32;
+const VFIREGRID_ROWS: usize = NUM_LEDS / VFIREGRID_COLS;
 
 bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => InterruptHandler<PIO0>;
@@ -100,26 +107,21 @@ async fn main(spawner: Spawner) {
 
     let mut strip = Strip::<NUM_LEDS>::new();
 
-    enum Effect {
-        Random,
-        Wheel,
-        OneColour,
-        Fire,
-    }
-    impl defmt::Format for Effect {
-        fn format(&self, fmt: Formatter) {
-            match self {
-                Effect::Random => defmt::write!(fmt, "Random"),
-                Effect::Wheel => defmt::write!(fmt, "Wheel"),
-                Effect::OneColour => defmt::write!(fmt, "OneColour"),
-                Effect::Fire => defmt::write!(fmt, "Fire"),
-            }
-        }
-    }
-
     let mut random_effect = effect::Random::<NUM_LEDS>::new(&strip, None);
     let mut wheel_effect = effect::Wheel::new(None);
     let mut onecolour_effect = effect::OneColour::new(colors::BLACK);
+    let mut h_firegrid_effect = effect::FireGrid::<HFIREGRID_COLS, HFIREGRID_ROWS>::new(
+        &strip,
+        None,
+        None,
+        effect::StripDirection::Horizontal,
+    );
+    let mut v_firegrid_effect = effect::FireGrid::<VFIREGRID_COLS, VFIREGRID_ROWS>::new(
+        &strip,
+        None,
+        None,
+        effect::StripDirection::Vertical,
+    );
     let mut fire_effect = effect::Fire::<NUM_LEDS>::new(&strip, None, None);
     let mut effect = Effect::OneColour;
     loop {
@@ -127,6 +129,8 @@ async fn main(spawner: Spawner) {
             Effect::Random => random_effect.nextframe(&mut strip).unwrap(),
             Effect::Wheel => wheel_effect.nextframe(&mut strip).unwrap(),
             Effect::OneColour => onecolour_effect.nextframe(&mut strip).unwrap(),
+            Effect::HFireGrid => h_firegrid_effect.nextframe(&mut strip).unwrap(),
+            Effect::VFireGrid => v_firegrid_effect.nextframe(&mut strip).unwrap(),
             Effect::Fire => fire_effect.nextframe(&mut strip).unwrap(),
         }
         ws2812.write(&strip.leds).await;
@@ -143,6 +147,12 @@ async fn main(spawner: Spawner) {
                         effect = Effect::OneColour;
                     }
                     Effect::OneColour => {
+                        effect = Effect::HFireGrid;
+                    }
+                    Effect::HFireGrid => {
+                        effect = Effect::VFireGrid;
+                    }
+                    Effect::VFireGrid => {
                         effect = Effect::Fire;
                     }
                     Effect::Fire => {
@@ -173,8 +183,22 @@ async fn main(spawner: Spawner) {
                             onecolour_effect.colour.b
                         );
                     }
-                    Effect::Fire => {
-                        debug!("btn2 Fire");
+                    Effect::HFireGrid => {
+                        let mut cooling = h_firegrid_effect.inc_cooling(8);
+                        if cooling > 80 {
+                            cooling = h_firegrid_effect.set_cooling(None);
+                        }
+                        debug!("HFireGrid cooling: {}", cooling);
+                    }
+                    Effect::VFireGrid => {
+                        let mut cooling = v_firegrid_effect.inc_cooling(8);
+                        if cooling > 124 {
+                            cooling = v_firegrid_effect.set_cooling(None);
+                        }
+                        debug!("VFireGrid cooling: {}", cooling);
+                    }
+                    _ => {
+                        debug!("btn2 {}", effect);
                     }
                 }
             }

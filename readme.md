@@ -9,7 +9,8 @@ LED effects library and binary examples. For Raspberry Pico 2. Using Embassy emb
 | Random | Random colour changes at random times. | Increase random delay per pixel. |
 | Wheel | Rotate each pixel through shades of red, green and blue. | Speed up rotation |
 | OneColour | All pixels set to a single colour. | Alternate between Off (Black) & On (White). |
-| Fire | Simulated fire. | TBA |
+| FireGrid | Fire effect over a 2D grid. Can be Horizointal or Vertical | Increases cooling. |
+| Fire | Simulated fire. | Increases cooling. |
 
 _More to come_
 
