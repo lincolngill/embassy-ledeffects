@@ -52,7 +52,7 @@ use defmt::*;
 use embassy_executor::Spawner;
 use embassy_ledeffects::{
     Button, Strip,
-    effect::{self, Effect, EffectIterator},
+    effect::{self, EffectIterator},
     strip::frame_rate_task,
 };
 use embassy_rp::bind_interrupts;
@@ -70,10 +70,20 @@ const NUM_LEDS: usize = 256;
 const FPS_TARGET: u32 = 30;
 const FPS_ADJUST_SECS: u32 = 5;
 
+// 8x32 grid
 const HFIREGRID_COLS: usize = 8;
 const HFIREGRID_ROWS: usize = NUM_LEDS / HFIREGRID_COLS;
+// 32x8 grid
 const VFIREGRID_COLS: usize = 32;
 const VFIREGRID_ROWS: usize = NUM_LEDS / VFIREGRID_COLS;
+
+// 4x16 grid - Half the rows
+const H2FIREGRID_COLS: usize = 8;
+const H2FIREGRID_ROWS: usize = 16;
+
+// 16x6 grid - Half the cols
+const V2FIREGRID_COLS: usize = 16;
+const V2FIREGRID_ROWS: usize = 8;
 
 bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => InterruptHandler<PIO0>;
@@ -81,6 +91,31 @@ bind_interrupts!(struct Irqs {
 });
 
 static BTN_PRESSED: Signal<ThreadModeRawMutex, u8> = Signal::new();
+
+enum EffectState {
+    Random,
+    Wheel,
+    OneColour,
+    HFireGrid,
+    VFireGrid,
+    H2FireGrid,
+    V2FireGrid,
+    Fire,
+}
+impl defmt::Format for EffectState {
+    fn format(&self, fmt: Formatter) {
+        match self {
+            EffectState::Random => defmt::write!(fmt, "Random"),
+            EffectState::Wheel => defmt::write!(fmt, "Wheel"),
+            EffectState::OneColour => defmt::write!(fmt, "OneColour"),
+            EffectState::HFireGrid => defmt::write!(fmt, "HFireGrid"),
+            EffectState::VFireGrid => defmt::write!(fmt, "VFireGrid"),
+            EffectState::H2FireGrid => defmt::write!(fmt, "H2FireGrid"),
+            EffectState::V2FireGrid => defmt::write!(fmt, "V2FireGrid"),
+            EffectState::Fire => defmt::write!(fmt, "Fire"),
+        }
+    }
+}
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
@@ -114,24 +149,38 @@ async fn main(spawner: Spawner) {
         &strip,
         None,
         None,
-        effect::StripDirection::Horizontal,
+        effect::GridDirection::Horizontal,
     );
     let mut v_firegrid_effect = effect::FireGrid::<VFIREGRID_COLS, VFIREGRID_ROWS>::new(
         &strip,
         None,
         None,
-        effect::StripDirection::Vertical,
+        effect::GridDirection::Vertical,
+    );
+    let mut h2_firegrid_effect = effect::FireGrid::<H2FIREGRID_COLS, H2FIREGRID_ROWS>::new(
+        &strip,
+        None,
+        None,
+        effect::GridDirection::Horizontal,
+    );
+    let mut v2_firegrid_effect = effect::FireGrid::<V2FIREGRID_COLS, V2FIREGRID_ROWS>::new(
+        &strip,
+        None,
+        None,
+        effect::GridDirection::Vertical,
     );
     let mut fire_effect = effect::Fire::<NUM_LEDS>::new(&strip, None, None);
-    let mut effect = Effect::OneColour;
+    let mut effect = EffectState::OneColour;
     loop {
         match effect {
-            Effect::Random => random_effect.nextframe(&mut strip).unwrap(),
-            Effect::Wheel => wheel_effect.nextframe(&mut strip).unwrap(),
-            Effect::OneColour => onecolour_effect.nextframe(&mut strip).unwrap(),
-            Effect::HFireGrid => h_firegrid_effect.nextframe(&mut strip).unwrap(),
-            Effect::VFireGrid => v_firegrid_effect.nextframe(&mut strip).unwrap(),
-            Effect::Fire => fire_effect.nextframe(&mut strip).unwrap(),
+            EffectState::Random => random_effect.nextframe(&mut strip).unwrap(),
+            EffectState::Wheel => wheel_effect.nextframe(&mut strip).unwrap(),
+            EffectState::OneColour => onecolour_effect.nextframe(&mut strip).unwrap(),
+            EffectState::HFireGrid => h_firegrid_effect.nextframe(&mut strip).unwrap(),
+            EffectState::VFireGrid => v_firegrid_effect.nextframe(&mut strip).unwrap(),
+            EffectState::H2FireGrid => h2_firegrid_effect.nextframe(&mut strip).unwrap(),
+            EffectState::V2FireGrid => v2_firegrid_effect.nextframe(&mut strip).unwrap(),
+            EffectState::Fire => fire_effect.nextframe(&mut strip).unwrap(),
         }
         ws2812.write(&strip.leds).await;
         Timer::after(strip.frame_delay()).await;
@@ -140,37 +189,43 @@ async fn main(spawner: Spawner) {
             if btn_id == 1 {
                 // Next effect
                 match effect {
-                    Effect::Random => {
-                        effect = Effect::Wheel;
+                    EffectState::Random => {
+                        effect = EffectState::Wheel;
                     }
-                    Effect::Wheel => {
-                        effect = Effect::OneColour;
+                    EffectState::Wheel => {
+                        effect = EffectState::OneColour;
                     }
-                    Effect::OneColour => {
-                        effect = Effect::HFireGrid;
+                    EffectState::OneColour => {
+                        effect = EffectState::HFireGrid;
                     }
-                    Effect::HFireGrid => {
-                        effect = Effect::VFireGrid;
+                    EffectState::HFireGrid => {
+                        effect = EffectState::VFireGrid;
                     }
-                    Effect::VFireGrid => {
-                        effect = Effect::Fire;
+                    EffectState::VFireGrid => {
+                        effect = EffectState::H2FireGrid;
                     }
-                    Effect::Fire => {
-                        effect = Effect::Random;
+                    EffectState::H2FireGrid => {
+                        effect = EffectState::V2FireGrid;
+                    }
+                    EffectState::V2FireGrid => {
+                        effect = EffectState::Fire;
+                    }
+                    EffectState::Fire => {
+                        effect = EffectState::Random;
                     }
                 }
-                debug!("Effect: {}", effect);
+                debug!("EffectState: {}", effect);
             }
             if btn_id == 2 {
                 // Change current effect
                 match effect {
-                    Effect::Random => {
+                    EffectState::Random => {
                         debug!("Random delay_factor: {}", random_effect.slow_down());
                     }
-                    Effect::Wheel => {
+                    EffectState::Wheel => {
                         debug!("Wheel speed: {}", wheel_effect.speedup());
                     }
-                    Effect::OneColour => {
+                    EffectState::OneColour => {
                         if onecolour_effect.colour == colors::BLACK {
                             onecolour_effect.colour = colors::WHITE;
                         } else {
@@ -183,14 +238,14 @@ async fn main(spawner: Spawner) {
                             onecolour_effect.colour.b
                         );
                     }
-                    Effect::HFireGrid => {
+                    EffectState::HFireGrid => {
                         let mut cooling = h_firegrid_effect.inc_cooling(8);
                         if cooling > 80 {
                             cooling = h_firegrid_effect.set_cooling(None);
                         }
                         debug!("HFireGrid cooling: {}", cooling);
                     }
-                    Effect::VFireGrid => {
+                    EffectState::VFireGrid => {
                         let mut cooling = v_firegrid_effect.inc_cooling(8);
                         if cooling > 124 {
                             cooling = v_firegrid_effect.set_cooling(None);

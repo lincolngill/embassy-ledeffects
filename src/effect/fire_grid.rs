@@ -1,18 +1,28 @@
 use crate::Strip;
 use crate::effect::EffectIterator;
 use crate::effect::fire;
-//use defmt::debug;
+use defmt::Formatter;
+use smart_leds::colors;
 
 pub struct FireGrid<const C: usize, const R: usize> {
     cooling: u8,
     pub sparking: u8,
     heat: [[u8; R]; C],
-    strip_direction: StripDirection,
+    pub grid_direction: GridDirection,
 }
 
-pub enum StripDirection {
+pub enum GridDirection {
     Vertical,
     Horizontal,
+}
+
+impl defmt::Format for GridDirection {
+    fn format(&self, fmt: Formatter) {
+        match self {
+            GridDirection::Vertical => defmt::write!(fmt, "Vertical"),
+            GridDirection::Horizontal => defmt::write!(fmt, "Horizontal"),
+        }
+    }
 }
 
 const DEF_COOLING: u8 = 40;
@@ -23,19 +33,19 @@ impl<const C: usize, const R: usize> FireGrid<C, R> {
         _: &Strip<S>,
         cooling: Option<u8>,
         sparking: Option<u8>,
-        strip_direction: StripDirection,
+        grid_direction: GridDirection,
     ) -> Self {
-        if C * R != S {
+        if C * R > S {
             panic!(
-                "FireGrid<{} x {}> must be the same size as Strip<{}>",
+                "FireGrid<{} x {}> size cannot be greater than Strip<{}>",
                 C, R, S
             );
         }
         Self {
-            cooling: Self::cooling_val(cooling),
+            cooling: fire::cooling_val(cooling.unwrap_or(DEF_COOLING) as f32, R as f32),
             sparking: sparking.unwrap_or(DEF_SPARKING),
             heat: [[0; R]; C],
-            strip_direction,
+            grid_direction,
         }
     }
     pub fn inc_cooling(&mut self, cooldown: u8) -> u8 {
@@ -43,11 +53,8 @@ impl<const C: usize, const R: usize> FireGrid<C, R> {
         self.cooling
     }
     pub fn set_cooling(&mut self, cooling: Option<u8>) -> u8 {
-        self.cooling = Self::cooling_val(cooling);
+        self.cooling = fire::cooling_val(cooling.unwrap_or(DEF_COOLING) as f32, R as f32);
         self.cooling
-    }
-    fn cooling_val(cooling: Option<u8>) -> u8 {
-        (((cooling.unwrap_or(DEF_COOLING) as f32 * 10.0) / R as f32) + 2.0) as u8
     }
 }
 
@@ -59,9 +66,13 @@ impl<const C: usize, const R: usize> EffectIterator for FireGrid<C, R> {
         let mut c = 0;
         let mut r = 0;
         for i in 0..S {
-            strip.leds[i] = fire::colour(self.heat[c][r]);
-            match self.strip_direction {
-                StripDirection::Vertical => {
+            if c >= C || r >= R {
+                strip.leds[i] = colors::BLACK;
+            } else {
+                strip.leds[i] = fire::colour(self.heat[c][r]);
+            }
+            match self.grid_direction {
+                GridDirection::Vertical => {
                     //debug!("i: {} c: {} r: {}", i, c, r);
                     if (c % 2) == 0 {
                         // row inceasing
@@ -79,7 +90,7 @@ impl<const C: usize, const R: usize> EffectIterator for FireGrid<C, R> {
                         }
                     }
                 }
-                StripDirection::Horizontal => {
+                GridDirection::Horizontal => {
                     if (r % 2) == 0 {
                         // col increasing
                         c += 1;
