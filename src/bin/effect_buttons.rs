@@ -53,7 +53,7 @@ use embassy_executor::Spawner;
 use embassy_ledeffects::{
     Button, Strip,
     effect::{self, EffectIterator},
-    strip::frame_rate_task,
+    strip,
 };
 use embassy_rp::bind_interrupts;
 use embassy_rp::gpio::{self, Input, Level, Output};
@@ -66,24 +66,28 @@ use embassy_time::Timer;
 use smart_leds::colors;
 use {defmt_rtt as _, panic_probe as _};
 
+// 8 x 32 2D LED panel
 const NUM_LEDS: usize = 256;
+const SEGMENT_LENGTH: usize = 8;
+const SEGMENT_LAYOUT: strip::Layout = strip::Layout::ZigZag;
 const FPS_TARGET: u32 = 30;
 const FPS_ADJUST_SECS: u32 = 5;
 
-// 8x32 grid
+// 8x32 grid. Horizontal strip segments
 const HFIREGRID_COLS: usize = 8;
 const HFIREGRID_ROWS: usize = NUM_LEDS / HFIREGRID_COLS;
-// 32x8 grid
+// 32x8 grid. Vertical strip segments
 const VFIREGRID_COLS: usize = 32;
 const VFIREGRID_ROWS: usize = NUM_LEDS / VFIREGRID_COLS;
 
+// Fire grids that don't use all the panel.
 // 4x16 grid - Half the rows
-const H2FIREGRID_COLS: usize = 8;
+const H2FIREGRID_COLS: usize = 4;
 const H2FIREGRID_ROWS: usize = 16;
 
 // 16x6 grid - Half the cols
 const V2FIREGRID_COLS: usize = 16;
-const V2FIREGRID_ROWS: usize = 8;
+const V2FIREGRID_ROWS: usize = 6;
 
 bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => InterruptHandler<PIO0>;
@@ -92,9 +96,11 @@ bind_interrupts!(struct Irqs {
 
 static BTN_PRESSED: Signal<ThreadModeRawMutex, u8> = Signal::new();
 
+#[derive(Default)]
 enum EffectState {
     Random,
     Wheel,
+    #[default]
     OneColour,
     HFireGrid,
     VFireGrid,
@@ -123,7 +129,7 @@ async fn main(spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
 
     spawner.spawn(unwrap!(toggle_led(Output::new(p.PIN_25, Level::Low))));
-    spawner.spawn(unwrap!(frame_rate_task(FPS_ADJUST_SECS, FPS_TARGET)));
+    spawner.spawn(unwrap!(strip::frame_rate_task(FPS_ADJUST_SECS, FPS_TARGET)));
     spawner.spawn(unwrap!(button_task(Button::new(
         1,
         Input::new(p.PIN_14, gpio::Pull::Up),
@@ -140,7 +146,7 @@ async fn main(spawner: Spawner) {
     let program = PioWs2812Program::new(&mut common);
     let mut ws2812 = PioWs2812::new(&mut common, sm0, p.DMA_CH0, Irqs, p.PIN_16, &program);
 
-    let mut strip = Strip::<NUM_LEDS>::new();
+    let mut strip = Strip::<NUM_LEDS>::new(Some(SEGMENT_LENGTH), Some(SEGMENT_LAYOUT));
 
     let mut random_effect = effect::Random::<NUM_LEDS>::new(&strip, None);
     let mut wheel_effect = effect::Wheel::new(None);
@@ -170,93 +176,111 @@ async fn main(spawner: Spawner) {
         effect::GridDirection::Vertical,
     );
     let mut fire_effect = effect::Fire::<NUM_LEDS>::new(&strip, None, None);
-    let mut effect = EffectState::OneColour;
+    let mut effect = EffectState::default();
+    let mut btn_id: u8;
     loop {
+        btn_id = 0; // No button pressed
+        if BTN_PRESSED.signaled() {
+            btn_id = BTN_PRESSED.wait().await;
+        }
+        // State machine for EffectState
         match effect {
-            EffectState::Random => random_effect.nextframe(&mut strip).unwrap(),
-            EffectState::Wheel => wheel_effect.nextframe(&mut strip).unwrap(),
-            EffectState::OneColour => onecolour_effect.nextframe(&mut strip).unwrap(),
-            EffectState::HFireGrid => h_firegrid_effect.nextframe(&mut strip).unwrap(),
-            EffectState::VFireGrid => v_firegrid_effect.nextframe(&mut strip).unwrap(),
-            EffectState::H2FireGrid => h2_firegrid_effect.nextframe(&mut strip).unwrap(),
-            EffectState::V2FireGrid => v2_firegrid_effect.nextframe(&mut strip).unwrap(),
-            EffectState::Fire => fire_effect.nextframe(&mut strip).unwrap(),
+            EffectState::Random => {
+                random_effect.nextframe(&mut strip).unwrap();
+                if btn_id == 1 {
+                    effect = EffectState::Wheel;
+                }
+                if btn_id == 2 {
+                    debug!("Random delay_factor: {}", random_effect.slow_down());
+                }
+            }
+            EffectState::Wheel => {
+                wheel_effect.nextframe(&mut strip).unwrap();
+                if btn_id == 1 {
+                    effect = EffectState::OneColour;
+                }
+                if btn_id == 2 {
+                    debug!("Wheel speed: {}", wheel_effect.speedup());
+                }
+            }
+            EffectState::OneColour => {
+                onecolour_effect.nextframe(&mut strip).unwrap();
+                if btn_id == 1 {
+                    effect = EffectState::HFireGrid;
+                }
+                if btn_id == 2 {
+                    if onecolour_effect.colour == colors::BLACK {
+                        onecolour_effect.colour = colors::WHITE;
+                    } else {
+                        onecolour_effect.colour = colors::BLACK;
+                    }
+                    debug!(
+                        "OneColour {} {} {}",
+                        onecolour_effect.colour.r,
+                        onecolour_effect.colour.g,
+                        onecolour_effect.colour.b
+                    );
+                }
+            }
+            EffectState::HFireGrid => {
+                h_firegrid_effect.nextframe(&mut strip).unwrap();
+                if btn_id == 1 {
+                    effect = EffectState::VFireGrid;
+                }
+                if btn_id == 2 {
+                    let mut cooling = h_firegrid_effect.inc_cooling(8);
+                    if cooling > 80 {
+                        cooling = h_firegrid_effect.set_cooling(None);
+                    }
+                    debug!("HFireGrid cooling: {}", cooling);
+                }
+            }
+            EffectState::VFireGrid => {
+                v_firegrid_effect.nextframe(&mut strip).unwrap();
+                if btn_id == 1 {
+                    effect = EffectState::H2FireGrid;
+                }
+                if btn_id == 2 {
+                    let mut cooling = v_firegrid_effect.inc_cooling(8);
+                    if cooling > 124 {
+                        cooling = v_firegrid_effect.set_cooling(None);
+                    }
+                    debug!("VFireGrid cooling: {}", cooling);
+                }
+            }
+            EffectState::H2FireGrid => {
+                h2_firegrid_effect.nextframe(&mut strip).unwrap();
+                if btn_id == 1 {
+                    effect = EffectState::V2FireGrid;
+                }
+                if btn_id == 2 {
+                    debug!("btn2 {}", effect);
+                }
+            }
+            EffectState::V2FireGrid => {
+                v2_firegrid_effect.nextframe(&mut strip).unwrap();
+                if btn_id == 1 {
+                    effect = EffectState::Fire;
+                }
+                if btn_id == 2 {
+                    debug!("btn2 {}", effect);
+                }
+            }
+            EffectState::Fire => {
+                fire_effect.nextframe(&mut strip).unwrap();
+                if btn_id == 1 {
+                    effect = EffectState::Random;
+                }
+                if btn_id == 2 {
+                    debug!("btn2 {}", effect);
+                }
+            }
         }
         ws2812.write(&strip.leds).await;
         Timer::after(strip.frame_delay()).await;
-        if BTN_PRESSED.signaled() {
-            let btn_id = BTN_PRESSED.wait().await;
-            if btn_id == 1 {
-                // Next effect
-                match effect {
-                    EffectState::Random => {
-                        effect = EffectState::Wheel;
-                    }
-                    EffectState::Wheel => {
-                        effect = EffectState::OneColour;
-                    }
-                    EffectState::OneColour => {
-                        effect = EffectState::HFireGrid;
-                    }
-                    EffectState::HFireGrid => {
-                        effect = EffectState::VFireGrid;
-                    }
-                    EffectState::VFireGrid => {
-                        effect = EffectState::H2FireGrid;
-                    }
-                    EffectState::H2FireGrid => {
-                        effect = EffectState::V2FireGrid;
-                    }
-                    EffectState::V2FireGrid => {
-                        effect = EffectState::Fire;
-                    }
-                    EffectState::Fire => {
-                        effect = EffectState::Random;
-                    }
-                }
-                debug!("EffectState: {}", effect);
-            }
-            if btn_id == 2 {
-                // Change current effect
-                match effect {
-                    EffectState::Random => {
-                        debug!("Random delay_factor: {}", random_effect.slow_down());
-                    }
-                    EffectState::Wheel => {
-                        debug!("Wheel speed: {}", wheel_effect.speedup());
-                    }
-                    EffectState::OneColour => {
-                        if onecolour_effect.colour == colors::BLACK {
-                            onecolour_effect.colour = colors::WHITE;
-                        } else {
-                            onecolour_effect.colour = colors::BLACK;
-                        }
-                        debug!(
-                            "OneColour {} {} {}",
-                            onecolour_effect.colour.r,
-                            onecolour_effect.colour.g,
-                            onecolour_effect.colour.b
-                        );
-                    }
-                    EffectState::HFireGrid => {
-                        let mut cooling = h_firegrid_effect.inc_cooling(8);
-                        if cooling > 80 {
-                            cooling = h_firegrid_effect.set_cooling(None);
-                        }
-                        debug!("HFireGrid cooling: {}", cooling);
-                    }
-                    EffectState::VFireGrid => {
-                        let mut cooling = v_firegrid_effect.inc_cooling(8);
-                        if cooling > 124 {
-                            cooling = v_firegrid_effect.set_cooling(None);
-                        }
-                        debug!("VFireGrid cooling: {}", cooling);
-                    }
-                    _ => {
-                        debug!("btn2 {}", effect);
-                    }
-                }
-            }
+        if btn_id == 1 {
+            // New EffectState
+            debug!("EffectState: {}", effect);
         }
     }
 }

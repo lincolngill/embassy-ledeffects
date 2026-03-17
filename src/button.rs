@@ -11,6 +11,7 @@ pub struct Button<'a> {
 
 impl<'a> Button<'a> {
     pub fn new(id: u8, input: Input<'a>) -> Self {
+        assert!(id != 0, "Button id must be > 0");
         Self {
             id,
             input,

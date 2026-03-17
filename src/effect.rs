@@ -9,6 +9,8 @@ mod fire;
 pub use fire::Fire;
 mod fire_grid;
 pub use fire_grid::{FireGrid, GridDirection};
+mod colours;
+pub use colours::COLOURS;
 
 // Triat for generating the next frame of updates on the Strip.
 pub trait EffectIterator {

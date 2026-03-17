@@ -16,51 +16,30 @@ _More to come_
 
 Refer to effect_button.rs binary for example of all effects.
 
+## 2D LED Panel
+
+A 2D panel of LEDs is supported by treating it as a single strip with a segment length (and layout).
+
+E.g. a 5 col x 3 row LED strip, with ZipZag layout would be a:
+* 15 LED strip, with;
+* Segment legnth of 5, and;
+* LEDs numbered as follows:
+
+```
+10 11 12 13 14
+ 9  8  7  6  5
+ 0  1  2  3  4
+```
+
+A strip wrapped around a cylinder can be treated as a number of columns and rows by using strip::Layout::Continuous and setting segment_length = to the number of LEDs on each level or rotation of the cylinder.
+
+The default segment length is the entire strip. E.g. a 1D strip.
+
+If the segment length = the strip size, the default layout is Continuous, otherwise it is ZigZag.
+
 ## Binary Crates
 
 | Example | Description |
 |---------|-------------|
 | effect_buttons.rs | Rotates through all effects and second button adjusts an attribute of the effect. |
 | random.rs | Just the random effect. Simple example. |
-
-## Example - bin/random.rs
-
-```rust
-...
-const NUM_LEDS: usize = 120;
-const FPS_TARGET: u32 = 30;
-const FPS_ADJUST_SECS: u32 = 5;
-
-bind_interrupts!(struct Irqs {
-    PIO0_IRQ_0 => InterruptHandler<PIO0>;
-    DMA_IRQ_0 => embassy_rp::dma::InterruptHandler<DMA_CH0>;
-});
-
-#[embassy_executor::main]
-async fn main(spawner: Spawner) {
-    info!("Start");
-    let p = embassy_rp::init(Default::default());
-
-    spawner.spawn(unwrap!(toggle_led(Output::new(p.PIN_25, Level::Low))));
-    spawner.spawn(unwrap!(embassy_ledeffects::strip::frame_rate_task(
-        FPS_ADJUST_SECS,
-        FPS_TARGET
-    )));
-
-    let Pio {
-        mut common, sm0, ..
-    } = Pio::new(p.PIO0, Irqs);
-
-    let program = PioWs2812Program::new(&mut common);
-    let mut ws2812 = PioWs2812::new(&mut common, sm0, p.DMA_CH0, Irqs, p.PIN_16, &program);
-
-    let mut strip = Strip::<NUM_LEDS>::new(FPS_TARGET);
-    let mut effect = effect::Random::<NUM_LEDS>::new(&strip);
-    loop {
-        effect.nextframe(&mut strip).unwrap();
-        ws2812.write(&strip.leds).await;
-        Timer::after(strip.frame_delay()).await;
-    }
-}
-...
-```

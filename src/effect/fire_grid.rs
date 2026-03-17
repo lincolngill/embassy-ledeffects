@@ -30,16 +30,31 @@ const DEF_SPARKING: u8 = 120;
 
 impl<const C: usize, const R: usize> FireGrid<C, R> {
     pub fn new<const S: usize>(
-        _: &Strip<S>,
+        strip: &Strip<S>,
         cooling: Option<u8>,
         sparking: Option<u8>,
         grid_direction: GridDirection,
     ) -> Self {
-        if C * R > S {
-            panic!(
-                "FireGrid<{} x {}> size cannot be greater than Strip<{}>",
-                C, R, S
-            );
+        assert!(
+            C * R <= S,
+            "FireGrid<{} x {}> size cannot be > than Strip<{}>",
+            C,
+            R,
+            S
+        );
+        match grid_direction {
+            GridDirection::Vertical => assert!(
+                R <= strip.seg_length,
+                "R: {} cannot be > strip segment length: {}",
+                R,
+                strip.seg_length
+            ),
+            GridDirection::Horizontal => assert!(
+                C <= strip.seg_length,
+                "C: {} cannot be > strip segment length: {}",
+                C,
+                strip.seg_length
+            ),
         }
         Self {
             cooling: fire::cooling_val(cooling.unwrap_or(DEF_COOLING) as f32, R as f32),
@@ -72,12 +87,14 @@ impl<const C: usize, const R: usize> EffectIterator for FireGrid<C, R> {
                 strip.leds[i] = fire::colour(self.heat[c][r]);
             }
             match self.grid_direction {
+                // todo: Handle Layout::Continuous.
+                // Currently only handles Layout::ZigZag
                 GridDirection::Vertical => {
                     //debug!("i: {} c: {} r: {}", i, c, r);
                     if (c % 2) == 0 {
                         // row inceasing
                         r += 1;
-                        if r == R {
+                        if r == strip.seg_length {
                             c += 1;
                             r -= 1;
                         }
@@ -94,7 +111,7 @@ impl<const C: usize, const R: usize> EffectIterator for FireGrid<C, R> {
                     if (r % 2) == 0 {
                         // col increasing
                         c += 1;
-                        if c == C {
+                        if c == strip.seg_length {
                             r += 1;
                             c -= 1;
                         }

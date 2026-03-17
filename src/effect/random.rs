@@ -1,7 +1,7 @@
 use crate::Strip;
-use crate::effect::EffectIterator;
+use crate::effect::{COLOURS, EffectIterator};
 use embassy_rp::clocks::RoscRng;
-use smart_leds::RGB8;
+//use smart_leds::RGB8;
 
 const MAX_DELAY_FACTOR: u64 = 512;
 const MIN_DELAY_FACTOR: u64 = 8;
@@ -10,6 +10,7 @@ pub struct Random<const N: usize> {
     // Keep a separate timeout value for each pixel.
     led_timeout: [u64; N],
     delay_factor: u64,
+    colours_cnt: usize,
 }
 
 impl<const N: usize> Random<N> {
@@ -28,6 +29,7 @@ impl<const N: usize> Random<N> {
         Self {
             led_timeout: [0; N],
             delay_factor: df,
+            colours_cnt: COLOURS.len(),
         }
     }
     pub fn slow_down(&mut self) -> u64 {
@@ -52,11 +54,15 @@ impl<const N: usize> EffectIterator for Random<N> {
         for i in 0..N {
             if self.led_timeout[i] < now {
                 let rn = RoscRng.next_u32();
+                let ci = rn as usize % self.colours_cnt;
+                strip.leds[i] = COLOURS[ci];
+                /*
                 strip.leds[i] = RGB8 {
                     r: (rn & 0xFF) as u8,
                     g: ((rn >> 8) & 0xFF) as u8,
                     b: ((rn >> 16) & 0xFF) as u8,
                 };
+                */
                 self.led_timeout[i] = now + 500 + ((rn >> 24) as u64 * self.delay_factor);
             }
         }
