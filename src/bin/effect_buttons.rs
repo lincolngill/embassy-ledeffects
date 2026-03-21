@@ -70,7 +70,7 @@ use {defmt_rtt as _, panic_probe as _};
 const NUM_LEDS: usize = 256;
 const SEGMENT_LENGTH: usize = 8;
 const SEGMENT_LAYOUT: strip::Layout = strip::Layout::ZigZag;
-const FPS_TARGET: u32 = 30;
+const FPS_TARGET: u32 = 60;
 const FPS_ADJUST_SECS: u32 = 5;
 
 // 8x32 grid. Horizontal strip segments
@@ -102,6 +102,7 @@ enum EffectState {
     Wheel,
     #[default]
     OneColour,
+    Comets,
     HFireGrid,
     VFireGrid,
     H2FireGrid,
@@ -114,6 +115,7 @@ impl defmt::Format for EffectState {
             EffectState::Random => defmt::write!(fmt, "Random"),
             EffectState::Wheel => defmt::write!(fmt, "Wheel"),
             EffectState::OneColour => defmt::write!(fmt, "OneColour"),
+            EffectState::Comets => defmt::write!(fmt, "Comets"),
             EffectState::HFireGrid => defmt::write!(fmt, "HFireGrid"),
             EffectState::VFireGrid => defmt::write!(fmt, "VFireGrid"),
             EffectState::H2FireGrid => defmt::write!(fmt, "H2FireGrid"),
@@ -151,6 +153,7 @@ async fn main(spawner: Spawner) {
     let mut random_effect = effect::Random::<NUM_LEDS>::new(&strip, None);
     let mut wheel_effect = effect::Wheel::new(None);
     let mut onecolour_effect = effect::OneColour::new(colors::BLACK);
+    let mut comets_effect = effect::Comets::new();
     let mut h_firegrid_effect = effect::FireGrid::<HFIREGRID_COLS, HFIREGRID_ROWS>::new(
         &strip,
         None,
@@ -206,7 +209,7 @@ async fn main(spawner: Spawner) {
             EffectState::OneColour => {
                 onecolour_effect.nextframe(&mut strip).unwrap();
                 if btn_id == 1 {
-                    effect = EffectState::HFireGrid;
+                    effect = EffectState::Comets;
                 }
                 if btn_id == 2 {
                     if onecolour_effect.colour == colors::BLACK {
@@ -220,6 +223,18 @@ async fn main(spawner: Spawner) {
                         onecolour_effect.colour.g,
                         onecolour_effect.colour.b
                     );
+                }
+            }
+            EffectState::Comets => {
+                comets_effect.nextframe(&mut strip).unwrap();
+                if btn_id == 1 {
+                    effect = EffectState::HFireGrid;
+                }
+                if btn_id == 2 {
+                    match comets_effect.launch() {
+                        Ok(_) => info!("Fire in the hole: {}", comets_effect.comet_cnt()),
+                        Err(_) => warn!("Failed to launch. Too many comets."),
+                    }
                 }
             }
             EffectState::HFireGrid => {
@@ -280,7 +295,7 @@ async fn main(spawner: Spawner) {
         Timer::after(strip.frame_delay()).await;
         if btn_id == 1 {
             // New EffectState
-            debug!("EffectState: {}", effect);
+            info!("EffectState: {}", effect);
         }
     }
 }

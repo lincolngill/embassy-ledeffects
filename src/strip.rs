@@ -87,7 +87,7 @@ pub async fn frame_rate_task(fps_adjust_secs: u32, fps_target: u32) {
         let new_delay = cmp::max(delay, 1) * fps / fps_target;
         if fps > 0 && fps_diff.abs() > fps_tolerance {
             if new_delay == delay {
-                fps_tolerance = fps_diff.abs()
+                fps_tolerance = fps_diff.abs().min(3);
                 // Could break out of loop and end task here.
                 // Or check for no adjustment for n iterations and then exit.
                 // May implement this if all future effects have a stable delay value.
@@ -103,3 +103,31 @@ pub async fn frame_rate_task(fps_adjust_secs: u32, fps_target: u32) {
         );
     }
 }
+
+/* Something not quirte right!
+280.077518 [DEBUG] FPS: 41 FPS_Diff: -19 FPS_Tolerance: 0 Delay: 1 NewDelay: 0 Frames: 15837 (embassy_ledeffects embassy-ledeffects/src/strip.rs:100)
+285.078043 [DEBUG] FPS: 43 FPS_Diff: -17 FPS_Tolerance: 3 Delay: 0 NewDelay: 0 Frames: 16055 (embassy_ledeffects embassy-ledeffects/src/strip.rs:100)
+290.078549 [DEBUG] FPS: 43 FPS_Diff: -17 FPS_Tolerance: 3 Delay: 0 NewDelay: 0 Frames: 16273 (embassy_ledeffects embassy-ledeffects/src/strip.rs:100)
+295.082228 [DEBUG] FPS: 43 FPS_Diff: -17 FPS_Tolerance: 3 Delay: 0 NewDelay: 0 Frames: 16491 (embassy_ledeffects embassy-ledeffects/src/strip.rs:100)
+300.085117 [DEBUG] FPS: 43 FPS_Diff: -17 FPS_Tolerance: 3 Delay: 0 NewDelay: 0 Frames: 16709 (embassy_ledeffects embassy-ledeffects/src/strip.rs:100)
+305.089888 [DEBUG] FPS: 43 FPS_Diff: -17 FPS_Tolerance: 3 Delay: 0 NewDelay: 0 Frames: 16927 (embassy_ledeffects embassy-ledeffects/src/strip.rs:100)
+310.093946 [DEBUG] FPS: 43 FPS_Diff: -17 FPS_Tolerance: 3 Delay: 0 NewDelay: 0 Frames: 17145 (embassy_ledeffects embassy-ledeffects/src/strip.rs:100)
+315.098910 [DEBUG] FPS: 43 FPS_Diff: -17 FPS_Tolerance: 3 Delay: 0 NewDelay: 0 Frames: 17363 (embassy_ledeffects embassy-ledeffects/src/strip.rs:100)
+316.476128 [DEBUG] btn2 Fire (effect_buttons src/bin/effect_buttons.rs:290)
+320.104448 [DEBUG] FPS: 43 FPS_Diff: -17 FPS_Tolerance: 3 Delay: 0 NewDelay: 0 Frames: 17581 (embassy_ledeffects embassy-ledeffects/src/strip.rs:100)
+320.334136 [DEBUG] btn2 Fire (effect_buttons src/bin/effect_buttons.rs:290)
+323.877899 [INFO ] EffectState: Random (effect_buttons src/bin/effect_buttons.rs:298)
+325.104990 [DEBUG] FPS: 61 FPS_Diff: 1 FPS_Tolerance: 3 Delay: 0 NewDelay: 1 Frames: 17887 (embassy_ledeffects embassy-ledeffects/src/strip.rs:100)
+330.105507 [DEBUG] FPS: 115 FPS_Diff: 55 FPS_Tolerance: 0 Delay: 0 NewDelay: 1 Frames: 18466 (embassy_ledeffects embassy-ledeffects/src/strip.rs:100)
+335.106000 [DEBUG] FPS: 104 FPS_Diff: 44 FPS_Tolerance: 3 Delay: 1 NewDelay: 1 Frames: 18986 (embassy_ledeffects embassy-ledeffects/src/strip.rs:100)
+340.106499 [DEBUG] FPS: 104 FPS_Diff: 44 FPS_Tolerance: 3 Delay: 1 NewDelay: 1 Frames: 19506 (embassy_ledeffects embassy-ledeffects/src/strip.rs:100)
+345.106957 [DEBUG] FPS: 103 FPS_Diff: 43 FPS_Tolerance: 3 Delay: 1 NewDelay: 1 Frames: 20025 (embassy_ledeffects embassy-ledeffects/src/strip.rs:100)
+350.107452 [DEBUG] FPS: 104 FPS_Diff: 44 FPS_Tolerance: 3 Delay: 1 NewDelay: 1 Frames: 20545 (embassy_ledeffects embassy-ledeffects/src/strip.rs:100)
+355.107951 [DEBUG] FPS: 104 FPS_Diff: 44 FPS_Tolerance: 3 Delay: 1 NewDelay: 1 Frames: 21065 (embassy_ledeffects embassy-ledeffects/src/strip.rs:100)
+360.108464 [DEBUG] FPS: 104 FPS_Diff: 44 FPS_Tolerance: 3 Delay: 1 NewDelay: 1 Frames: 21585 (embassy_ledeffects embassy-ledeffects/src/strip.rs:100)
+365.108961 [DEBUG] FPS: 104 FPS_Diff: 44 FPS_Tolerance: 3 Delay: 1 NewDelay: 1 Frames: 22105 (embassy_ledeffects embassy-ledeffects/src/strip.rs:100)
+370.110363 [DEBUG] FPS: 104 FPS_Diff: 44 FPS_Tolerance: 3 Delay: 1 NewDelay: 1 Frames: 22625 (embassy_ledeffects embassy-ledeffects/src/strip.rs:100)
+371.649535 [INFO ] EffectState: Wheel (effect_buttons src/bin/effect_buttons.rs:298)
+375.110893 [DEBUG] FPS: 101 FPS_Diff: 41 FPS_Tolerance: 3 Delay: 1 NewDelay: 1 Frames: 23134 (embassy_ledeffects embassy-ledeffects/src/strip.rs:100)
+380.111500 [DEBUG] FPS: 101 FPS_Diff: 41 FPS_Tolerance: 3 Delay: 1 NewDelay: 1 Frames: 23640 (embassy_ledeffects embassy-ledeffects/src/strip.rs:100)
+*/
