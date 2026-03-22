@@ -45,8 +45,8 @@ use embassy_time::Timer;
 use {defmt_rtt as _, panic_probe as _};
 
 const NUM_LEDS: usize = 120;
-const FPS_TARGET: u32 = 60;
-const FPS_ADJUST_SECS: u32 = 5;
+const FPS_TARGET: i32 = 60;
+const FPS_ADJUST_SECS: i32 = 5;
 
 bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => InterruptHandler<PIO0>;
