@@ -44,6 +44,8 @@ Effects:
     FireGrid - Fire effect in columns and rows
         Can be vertical or horizontal.
     Fire
+    Comets - Ping up and down the strip.
+        Button 2 - Launch another comet. Random direction. Random TTL.
  */
 #![no_std]
 #![no_main]
