@@ -1,99 +1,154 @@
 use crate::Strip;
 use crate::effect::EffectIterator;
-//use defmt::debug;
+use defmt::Formatter;
 use embassy_rp::clocks::RoscRng;
 use heapless::spsc::Queue;
 use smart_leds::{RGB8, colors};
 
 const MAX_NUM_COMETS: usize = 16;
-const COMET_TAIL: usize = 1;
+const START_COOLING_MASK: u8 = 0xFF;
 
 type HeadPos = usize;
 
-pub struct Comets {
-    comets: Queue<HeadPos, MAX_NUM_COMETS>,
-    //    frames: usize,
+#[derive(Copy, Clone)]
+pub enum CometDirection {
+    Up,
+    Down,
 }
 
-impl Comets {
-    pub fn new() -> Self {
-        Self {
-            comets: Queue::new(),
-            //            frames: 0,
+impl defmt::Format for CometDirection {
+    fn format(&self, fmt: Formatter) {
+        match self {
+            CometDirection::Up => defmt::write!(fmt, "Up"),
+            CometDirection::Down => defmt::write!(fmt, "Down"),
         }
     }
-    pub fn launch(&mut self) -> Result<(), HeadPos> {
-        self.comets.enqueue(0)
+}
+
+pub struct Comet {
+    next_head_pos: HeadPos,
+    direction: CometDirection,
+    ttl_pings: u8,
+    alive: bool,
+}
+
+impl Comet {
+    fn new(direction: CometDirection, ttl_pings: u8, strip_len: usize) -> Self {
+        Comet {
+            next_head_pos: match direction {
+                CometDirection::Up => 0,
+                CometDirection::Down => strip_len - 1,
+            },
+            direction,
+            ttl_pings,
+            alive: true,
+        }
+    }
+    pub fn get_direction(self) -> CometDirection {
+        self.direction
+    }
+    pub fn get_ttl_pings(self) -> u8 {
+        self.ttl_pings
+    }
+}
+
+pub struct Comets<const N: usize> {
+    comets: Queue<Comet, MAX_NUM_COMETS>,
+    cooling_mask: [u8; N], // todo: rip out the cooling array. Looks better with 0xFF and some random non update frames.
+}
+
+impl<const N: usize> Comets<N> {
+    pub fn new<const S: usize>(_: &Strip<S>) -> Self {
+        assert!(N == S, "Comets<{}> must be same size as Strip<{}>", N, S);
+        Self {
+            comets: Queue::new(),
+            cooling_mask: [0xFF; N],
+        }
+    }
+    pub fn launch(
+        &mut self,
+        direction: Option<CometDirection>,
+        ttl_pings: Option<u8>,
+    ) -> Result<(), Comet> {
+        const DEF_DIRECTION: CometDirection = CometDirection::Up;
+        const DEF_TTL_PINGS: u8 = 0;
+        self.comets.enqueue(Comet::new(
+            direction.unwrap_or(DEF_DIRECTION),
+            ttl_pings.unwrap_or(DEF_TTL_PINGS),
+            N,
+        ))
     }
     pub fn comet_cnt(&mut self) -> usize {
         self.comets.len()
     }
 }
 
-#[inline]
-fn cooldown2(pixel: RGB8) -> RGB8 {
-    const MASK: u32 = 0xAF;
-    let rn = RoscRng.next_u32();
-    RGB8 {
-        r: pixel.r.saturating_sub((rn & MASK) as u8),
-        g: pixel.g.saturating_sub(((rn >> 8) & MASK) as u8),
-        b: pixel.b.saturating_sub(((rn >> 16) & MASK) as u8),
-    }
-}
-
-impl EffectIterator for Comets {
+impl<const N: usize> EffectIterator for Comets<N> {
     fn nextframe<const S: usize>(&mut self, strip: &mut Strip<S>) -> Option<()> {
-        let mut ci = self.comets.iter().rev();
-        let mut c = ci.next();
-        let mut next_head_pos = match c {
-            Some(hp) => *hp,
-            None => S + COMET_TAIL,
-        };
+        // cooling
         for i in 0..S {
-            if i == next_head_pos {
-                strip.leds[i] = colors::WHITE;
-                c = ci.next();
-                next_head_pos = match c {
-                    Some(hp) => *hp,
-                    None => S + COMET_TAIL,
-                };
-                /*
-                debug!(
-                    "Frame: {} At: {} next_head_pos: {}",
-                    self.frames, i, next_head_pos
-                );
-                */
-                continue;
+            if strip.leds[i] != colors::BLACK {
+                if RoscRng.next_u32() % 3 == 0 {
+                    let rn = RoscRng.next_u32();
+                    strip.leds[i] = RGB8 {
+                        r: strip.leds[i]
+                            .r
+                            .saturating_sub(rn as u8 & self.cooling_mask[i]),
+                        g: strip.leds[i]
+                            .g
+                            .saturating_sub((rn >> 8) as u8 & self.cooling_mask[i]),
+                        b: strip.leds[i]
+                            .b
+                            .saturating_sub((rn >> 16) as u8 & self.cooling_mask[i]),
+                    };
+                }
             }
-            if strip.leds[i] == colors::BLACK {
-                continue;
+            // Increase max cooling, for pixels not there yet.
+            if self.cooling_mask[i] < 0xFF {
+                self.cooling_mask[i] = self.cooling_mask[i] << 1 | 1;
             }
-            //strip.leds[i] = cooldown(strip.leds[i], next_head_pos - i);
-            strip.leds[i] = cooldown2(strip.leds[i]);
-            /*
-            debug!(
-                "Frame: {} At: {} Div: {} Cooldown: {} {} {}",
-                self.frames, i, cooldown_divisor, strip.leds[i].r, strip.leds[i].g, strip.leds[i].b
-            );
-            */
         }
+        // Update next_head_pos
         for c in self.comets.iter_mut() {
-            *c += 1;
+            if c.alive {
+                strip.leds[c.next_head_pos] = colors::WHITE;
+                // Sets lower pixel cooling near head
+                self.cooling_mask[c.next_head_pos] = START_COOLING_MASK;
+                match c.direction {
+                    CometDirection::Up => {
+                        c.next_head_pos += 1;
+                        if c.next_head_pos == S {
+                            if c.ttl_pings == 0 {
+                                c.alive = false;
+                            } else {
+                                c.ttl_pings -= 1;
+                                c.direction = CometDirection::Down;
+                                c.next_head_pos -= 1;
+                            }
+                        }
+                    }
+                    CometDirection::Down => {
+                        if c.next_head_pos == 0 {
+                            if c.ttl_pings == 0 {
+                                c.alive = false;
+                            } else {
+                                c.ttl_pings -= 1;
+                                c.direction = CometDirection::Up;
+                            }
+                        } else {
+                            c.next_head_pos -= 1;
+                        }
+                    }
+                }
+            }
         }
+        // Deq oldest comet if it's dead
         if let Some(c) = self.comets.peek()
-            && *c >= (S + COMET_TAIL)
+            && !c.alive
         {
             self.comets.dequeue().unwrap();
         }
         strip.inc_frame_cnt();
-        /*
-        if self.comets.len() > 1 {
-            self.frames += 1;
-            if self.frames > 100 {
-                panic!("Early exit");
-            }
-        };
-        */
         Some(())
     }
 }

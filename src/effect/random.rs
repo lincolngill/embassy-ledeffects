@@ -23,9 +23,7 @@ impl<const N: usize> Random<N> {
             MAX_DELAY_FACTOR
         );
         // Use size of Strip to make sure Random is the same size.
-        if N != S {
-            panic!("Random<{}> must be the same size as Strip<{}>", N, S);
-        }
+        assert!(N == S, "Random<{}> must be same size as Strip<{}>", N, S);
         Self {
             led_timeout: [0; N],
             delay_factor: df,

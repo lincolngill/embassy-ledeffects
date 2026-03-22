@@ -56,6 +56,7 @@ use embassy_ledeffects::{
     strip,
 };
 use embassy_rp::bind_interrupts;
+use embassy_rp::clocks::RoscRng;
 use embassy_rp::gpio::{self, Input, Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, PIO0};
 use embassy_rp::pio::{InterruptHandler, Pio};
@@ -70,8 +71,8 @@ use {defmt_rtt as _, panic_probe as _};
 const NUM_LEDS: usize = 256;
 const SEGMENT_LENGTH: usize = 8;
 const SEGMENT_LAYOUT: strip::Layout = strip::Layout::ZigZag;
-const FPS_TARGET: u32 = 60;
-const FPS_ADJUST_SECS: u32 = 5;
+const FPS_TARGET: i32 = 50;
+const FPS_ADJUST_SECS: i32 = 5;
 
 // 8x32 grid. Horizontal strip segments
 const HFIREGRID_COLS: usize = 8;
@@ -153,7 +154,7 @@ async fn main(spawner: Spawner) {
     let mut random_effect = effect::Random::<NUM_LEDS>::new(&strip, None);
     let mut wheel_effect = effect::Wheel::new(None);
     let mut onecolour_effect = effect::OneColour::new(colors::BLACK);
-    let mut comets_effect = effect::Comets::new();
+    let mut comets_effect = effect::Comets::<NUM_LEDS>::new(&strip);
     let mut h_firegrid_effect = effect::FireGrid::<HFIREGRID_COLS, HFIREGRID_ROWS>::new(
         &strip,
         None,
@@ -231,10 +232,25 @@ async fn main(spawner: Spawner) {
                     effect = EffectState::HFireGrid;
                 }
                 if btn_id == 2 {
-                    match comets_effect.launch() {
-                        Ok(_) => info!("Fire in the hole: {}", comets_effect.comet_cnt()),
-                        Err(_) => warn!("Failed to launch. Too many comets."),
+                    let ttl_pings = RoscRng.next_u32() as u8 % 3;
+                    let direction: effect::CometDirection;
+                    if RoscRng.next_u32() % 2 == 0 {
+                        direction = effect::CometDirection::Up;
+                    } else {
+                        direction = effect::CometDirection::Down;
                     }
+                    match comets_effect.launch(Some(direction), Some(ttl_pings)) {
+                        Ok(_) => info!(
+                            "Fire in the hole. TTL_pings: {} Dir: {} Comets: {}",
+                            ttl_pings,
+                            direction,
+                            comets_effect.comet_cnt()
+                        ),
+                        Err(_) => warn!(
+                            "Failed to launch. Too many comets {}.",
+                            comets_effect.comet_cnt()
+                        ),
+                    };
                 }
             }
             EffectState::HFireGrid => {

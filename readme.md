@@ -11,6 +11,7 @@ LED effects library and binary examples. For Raspberry Pico 2. Using Embassy emb
 | OneColour | All pixels set to a single colour. | Alternate between Off (Black) & On (White). |
 | FireGrid | Fire effect over a 2D grid. Can be Horizointal or Vertical | Increases cooling. |
 | Fire | Simulated fire. | Increases cooling. |
+| Comets | Ping up and down the strip | Launch a comet. Random direction and random TTL. |
 
 _More to come_
 
