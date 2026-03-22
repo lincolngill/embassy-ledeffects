@@ -82,17 +82,17 @@ pub async fn frame_rate_task(fps_adjust_secs: i32, fps_target: i32) {
         Timer::after_secs(fps_adjust_secs as u64).await;
         let end_cnt = FRAME_CNT.load(Ordering::Relaxed);
         let fps = (end_cnt - start_cnt) as i32 / fps_adjust_secs;
-        let fps_diff = fps - fps_target;
+        let delta_fps = fps - fps_target;
         let mut delta_delay: i32 = 0;
         if fps != 0 {
             delta_delay = fpst_delay - 1000 / fps;
         }
         let new_delay = (delay + delta_delay).max(MIN_DELAY_MS);
         debug!(
-            "FPS: {} FPS_Diff: {} Delta Delay: {} Delay: {} NewDelay: {} Frames: {}",
-            fps, fps_diff, delta_delay, delay, new_delay, end_cnt
+            "FPS: {} Delta FPS: {} Delta Delay: {} Delay: {} NewDelay: {} Frames: {}",
+            fps, delta_fps, delta_delay, delay, new_delay, end_cnt
         );
-        if delta_delay.abs() > 1 && new_delay != delay {
+        if new_delay != delay {
             FRAME_DELAY_MS.store(new_delay as u32, Ordering::Relaxed);
             delay = new_delay;
         }

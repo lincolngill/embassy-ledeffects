@@ -6,7 +6,6 @@ use heapless::spsc::Queue;
 use smart_leds::{RGB8, colors};
 
 const MAX_NUM_COMETS: usize = 16;
-const START_COOLING_MASK: u8 = 0xFF;
 
 type HeadPos = usize;
 
@@ -52,17 +51,16 @@ impl Comet {
     }
 }
 
-pub struct Comets<const N: usize> {
+pub struct Comets {
     comets: Queue<Comet, MAX_NUM_COMETS>,
-    cooling_mask: [u8; N], // todo: rip out the cooling array. Looks better with 0xFF and some random non update frames.
+    strip_len: usize,
 }
 
-impl<const N: usize> Comets<N> {
+impl Comets {
     pub fn new<const S: usize>(_: &Strip<S>) -> Self {
-        assert!(N == S, "Comets<{}> must be same size as Strip<{}>", N, S);
         Self {
             comets: Queue::new(),
-            cooling_mask: [0xFF; N],
+            strip_len: S,
         }
     }
     pub fn launch(
@@ -75,7 +73,7 @@ impl<const N: usize> Comets<N> {
         self.comets.enqueue(Comet::new(
             direction.unwrap_or(DEF_DIRECTION),
             ttl_pings.unwrap_or(DEF_TTL_PINGS),
-            N,
+            self.strip_len,
         ))
     }
     pub fn comet_cnt(&mut self) -> usize {
@@ -83,37 +81,26 @@ impl<const N: usize> Comets<N> {
     }
 }
 
-impl<const N: usize> EffectIterator for Comets<N> {
+impl EffectIterator for Comets {
     fn nextframe<const S: usize>(&mut self, strip: &mut Strip<S>) -> Option<()> {
         // cooling
+        const COOLDOWN_CHANCE_MASK: u8 = 0x03;
         for i in 0..S {
             if strip.leds[i] != colors::BLACK {
-                if RoscRng.next_u32() % 3 == 0 {
+                if RoscRng.next_u32() as u8 & COOLDOWN_CHANCE_MASK == 0 {
                     let rn = RoscRng.next_u32();
                     strip.leds[i] = RGB8 {
-                        r: strip.leds[i]
-                            .r
-                            .saturating_sub(rn as u8 & self.cooling_mask[i]),
-                        g: strip.leds[i]
-                            .g
-                            .saturating_sub((rn >> 8) as u8 & self.cooling_mask[i]),
-                        b: strip.leds[i]
-                            .b
-                            .saturating_sub((rn >> 16) as u8 & self.cooling_mask[i]),
+                        r: strip.leds[i].r.saturating_sub(rn as u8),
+                        g: strip.leds[i].g.saturating_sub((rn >> 8) as u8),
+                        b: strip.leds[i].b.saturating_sub((rn >> 16) as u8),
                     };
                 }
-            }
-            // Increase max cooling, for pixels not there yet.
-            if self.cooling_mask[i] < 0xFF {
-                self.cooling_mask[i] = self.cooling_mask[i] << 1 | 1;
             }
         }
         // Update next_head_pos
         for c in self.comets.iter_mut() {
             if c.alive {
                 strip.leds[c.next_head_pos] = colors::WHITE;
-                // Sets lower pixel cooling near head
-                self.cooling_mask[c.next_head_pos] = START_COOLING_MASK;
                 match c.direction {
                     CometDirection::Up => {
                         c.next_head_pos += 1;

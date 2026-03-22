@@ -73,7 +73,7 @@ use {defmt_rtt as _, panic_probe as _};
 const NUM_LEDS: usize = 256;
 const SEGMENT_LENGTH: usize = 8;
 const SEGMENT_LAYOUT: strip::Layout = strip::Layout::ZigZag;
-const FPS_TARGET: i32 = 50;
+const FPS_TARGET: i32 = 60;
 const FPS_ADJUST_SECS: i32 = 5;
 
 // 8x32 grid. Horizontal strip segments
@@ -156,7 +156,7 @@ async fn main(spawner: Spawner) {
     let mut random_effect = effect::Random::<NUM_LEDS>::new(&strip, None);
     let mut wheel_effect = effect::Wheel::new(None);
     let mut onecolour_effect = effect::OneColour::new(colors::BLACK);
-    let mut comets_effect = effect::Comets::<NUM_LEDS>::new(&strip);
+    let mut comets_effect = effect::Comets::new(&strip);
     let mut h_firegrid_effect = effect::FireGrid::<HFIREGRID_COLS, HFIREGRID_ROWS>::new(
         &strip,
         None,
