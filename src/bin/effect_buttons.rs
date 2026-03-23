@@ -205,8 +205,8 @@ async fn main(spawner: Spawner) {
             EffectState::Wheel => {
                 wheel_effect.nextframe(&mut strip).unwrap();
                 if btn_id == 1 {
-                    onecolour_effect.refresh();
                     effect = EffectState::OneColour;
+                    onecolour_effect.refresh();
                 }
                 if btn_id == 2 {
                     debug!("Wheel speed: {}", wheel_effect.speedup());
