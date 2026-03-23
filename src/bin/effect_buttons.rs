@@ -43,8 +43,9 @@ Effects:
         Button 2 - Changes colour to White (On)
     FireGrid - Fire effect in columns and rows
         Can be vertical or horizontal.
-    Fire
+    Fire - Single strip of fire effect.
     Comets - Ping up and down the strip.
+        The comets_task randomly sends launch signals based on a min and max delay period.
         Button 2 - Launch another comet. Random direction. Random TTL.
  */
 #![no_std]

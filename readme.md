@@ -38,6 +38,9 @@ The default segment length is the entire strip. E.g. a 1D strip.
 
 If the segment length = the strip size, the default layout is Continuous, otherwise it is ZigZag.
 
+> [!NOTE]
+> Currently only the FireGrid effect takes any notice of the strip 2D segmentation.
+
 ## Binary Crates
 
 | Example | Description |
