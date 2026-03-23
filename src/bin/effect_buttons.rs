@@ -11,13 +11,14 @@ frame rate task - strip::frame_rate_task
     Adjusts the main loop sleep time to achieve the target FPS.
     Checks every FPS_ADJUST_SECS (5)
     Debug outputs:
-        Current FPS.
-        Current main loop delay (ms).
-        Calculated (FPS - FPS_TARGET) difference.
-        New delay calculation.
-        Tolerance = FPS varaince observed when the new delay calc == current delay.
-            Delay is not adjusted again unless subsequent FPS variance exceeds tolerance.
-            Tolerance should be <= 3 FPS but will be > 0 when the FPS target is high and the delay is low.
+        Current FPS (FPSc).
+        Delta FPS (Dfps) from target FPS (FPSt).
+            Dfps = FPSt - FPSc.
+        Delta Delay calculation (Dt).
+            Dt (ms) = 1000/FPSt - 1000/FPSc.
+        Current Delay setting (Tc) (ms). Minimum = 2 ms.
+        New delay setting (Tn). Or "(No Change)"
+            Tn (ms) = Tc +  Dt
         Total frame count.
 
 Button 1 task (GPIO 14 - Input with pull up):
@@ -204,6 +205,7 @@ async fn main(spawner: Spawner) {
             EffectState::Wheel => {
                 wheel_effect.nextframe(&mut strip).unwrap();
                 if btn_id == 1 {
+                    onecolour_effect.refresh();
                     effect = EffectState::OneColour;
                 }
                 if btn_id == 2 {
@@ -217,17 +219,13 @@ async fn main(spawner: Spawner) {
                     spawner.spawn(unwrap!(comets::comets_task(None, None)));
                 }
                 if btn_id == 2 {
-                    if onecolour_effect.colour == colors::BLACK {
-                        onecolour_effect.colour = colors::WHITE;
+                    if onecolour_effect.get() == colors::BLACK {
+                        onecolour_effect.set(colors::WHITE);
+                        debug!("OneColour WHITE");
                     } else {
-                        onecolour_effect.colour = colors::BLACK;
+                        onecolour_effect.set(colors::BLACK);
+                        debug!("OneColour BLACK");
                     }
-                    debug!(
-                        "OneColour {} {} {}",
-                        onecolour_effect.colour.r,
-                        onecolour_effect.colour.g,
-                        onecolour_effect.colour.b
-                    );
                 }
             }
             EffectState::Comets => {
