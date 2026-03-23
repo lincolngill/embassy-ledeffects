@@ -54,7 +54,7 @@ use defmt::*;
 use embassy_executor::Spawner;
 use embassy_ledeffects::{
     Button, Strip,
-    effect::{self, EffectIterator},
+    effect::{self, EffectIterator, comets},
     strip,
 };
 use embassy_rp::bind_interrupts;
@@ -70,7 +70,7 @@ use smart_leds::colors;
 use {defmt_rtt as _, panic_probe as _};
 
 // 8 x 32 2D LED panel
-const NUM_LEDS: usize = 256;
+const NUM_LEDS: usize = 120;
 const SEGMENT_LENGTH: usize = 8;
 const SEGMENT_LAYOUT: strip::Layout = strip::Layout::ZigZag;
 const FPS_TARGET: i32 = 60;
@@ -213,6 +213,7 @@ async fn main(spawner: Spawner) {
                 onecolour_effect.nextframe(&mut strip).unwrap();
                 if btn_id == 1 {
                     effect = EffectState::Comets;
+                    spawner.spawn(unwrap!(comets::comets_task(None, None)));
                 }
                 if btn_id == 2 {
                     if onecolour_effect.colour == colors::BLACK {
@@ -231,9 +232,22 @@ async fn main(spawner: Spawner) {
             EffectState::Comets => {
                 comets_effect.nextframe(&mut strip).unwrap();
                 if btn_id == 1 {
-                    effect = EffectState::HFireGrid;
+                    comets::COMETS_IN_MSG.signal(comets::CometsInMsg::Stop);
+                    // delay effect change debug message till the TaskEnded signal
+                    btn_id = 0;
                 }
-                if btn_id == 2 {
+                let mut launch_signal: bool = false;
+                if comets::COMETS_OUT_MSG.signaled() {
+                    match comets::COMETS_OUT_MSG.wait().await {
+                        comets::CometsOutMsg::Launch => launch_signal = true,
+                        comets::CometsOutMsg::TaskEnded => {
+                            debug!("Comets task ended");
+                            effect = EffectState::HFireGrid;
+                            btn_id = 1; // Trigger effect change debug message
+                        }
+                    }
+                }
+                if btn_id == 2 || launch_signal {
                     let ttl_pings = RoscRng.next_u32() as u8 % 3;
                     let direction: effect::CometDirection;
                     if RoscRng.next_u32() % 2 == 0 {
@@ -249,7 +263,7 @@ async fn main(spawner: Spawner) {
                             comets_effect.comet_cnt()
                         ),
                         Err(_) => warn!(
-                            "Failed to launch. Too many comets {}.",
+                            "Failed to launch. Too many inflight comets {}.",
                             comets_effect.comet_cnt()
                         ),
                     };

@@ -39,7 +39,7 @@ impl<const N: usize> EffectIterator for Fire<N> {
 pub fn cooling_val(cooling: f32, height: f32) -> u8 {
     let mut c = (((cooling as f32 * 10.0) / height) + 2.0) as u8;
     if height < 14.0 {
-        c *= 2;
+        c = c.saturating_mul(2);
     }
     c
 }

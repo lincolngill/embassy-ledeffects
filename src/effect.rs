@@ -11,7 +11,7 @@ mod fire_grid;
 pub use fire_grid::{FireGrid, GridDirection};
 mod colours;
 pub use colours::COLOURS;
-mod comets;
+pub mod comets;
 pub use comets::{CometDirection, Comets};
 
 // Triat for generating the next frame of updates on the Strip.

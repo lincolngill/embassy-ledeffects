@@ -2,9 +2,11 @@ use crate::Strip;
 use crate::effect::EffectIterator;
 use defmt::Formatter;
 use embassy_rp::clocks::RoscRng;
+use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use embassy_sync::signal::Signal;
+use embassy_time::{Duration, Timer};
 use heapless::spsc::Queue;
 use smart_leds::{RGB8, colors};
-
 const MAX_NUM_COMETS: usize = 16;
 
 type HeadPos = usize;
@@ -138,4 +140,48 @@ impl EffectIterator for Comets {
         strip.inc_frame_cnt();
         Some(())
     }
+}
+
+pub enum CometsInMsg {
+    Stop,
+}
+pub static COMETS_IN_MSG: Signal<ThreadModeRawMutex, CometsInMsg> = Signal::new();
+
+pub enum CometsOutMsg {
+    Launch,
+    TaskEnded,
+}
+pub static COMETS_OUT_MSG: Signal<ThreadModeRawMutex, CometsOutMsg> = Signal::new();
+
+// Randomly signal to launch a new comet
+// Task stopped by sending a Stop msg on the COMETS_IN_MSGS signal.
+#[embassy_executor::task]
+pub async fn comets_task(min_delay_ms: Option<u32>, max_delay_ms: Option<u32>) {
+    const DEF_MIN_DELAY_MS: u32 = 200;
+    const DEF_MAX_DELAY_MS: u32 = 4000;
+    const MIN_MIN_DELAY_MS: u32 = 20;
+    let min_delay = min_delay_ms.unwrap_or(DEF_MIN_DELAY_MS);
+    let max_delay = max_delay_ms.unwrap_or(DEF_MAX_DELAY_MS);
+    assert!(
+        min_delay > MIN_MIN_DELAY_MS,
+        "min_delay must be > {}ms",
+        MIN_MIN_DELAY_MS
+    );
+    assert!(
+        max_delay > min_delay,
+        "max_delay {} must be >= min_delay {}",
+        max_delay,
+        min_delay
+    );
+    loop {
+        if COMETS_IN_MSG.signaled() {
+            match COMETS_IN_MSG.wait().await {
+                CometsInMsg::Stop => break,
+            }
+        }
+        let delay = min_delay + (RoscRng.next_u32() % (max_delay - min_delay));
+        Timer::after(Duration::from_millis(delay as u64)).await;
+        COMETS_OUT_MSG.signal(CometsOutMsg::Launch);
+    }
+    COMETS_OUT_MSG.signal(CometsOutMsg::TaskEnded);
 }
