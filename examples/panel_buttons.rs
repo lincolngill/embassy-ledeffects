@@ -1,7 +1,7 @@
 /*
 Main task:
-    Applies a single frame effect to the LED strip.
-    Writes the strip via PIO.
+    Applies a single frame effect to the LED 2D panel.
+    Writes the LED strip/panel via PIO.
     Sleeps for a short delay.
     If button 1 has been pressed rotate the effect that is being applied.
     If button 2 has been pressed alter the current effect. Refer below.
@@ -44,10 +44,6 @@ Effects:
         Button 2 - Changes colour to White (On)
     FireGrid - Fire effect in columns and rows
         Can be vertical or horizontal.
-    Fire - Single strip of fire effect.
-    Comets - Ping up and down the strip.
-        The comets_task randomly sends launch signals based on a min and max delay period.
-        Button 2 - Launch another comet. Random direction. Random TTL.
  */
 #![no_std]
 #![no_main]
@@ -56,11 +52,10 @@ use defmt::*;
 use embassy_executor::Spawner;
 use embassy_ledeffects::{
     Button, Strip,
-    effect::{self, EffectIterator, comets},
+    effect::{self, EffectIterator},
     strip,
 };
 use embassy_rp::bind_interrupts;
-use embassy_rp::clocks::RoscRng;
 use embassy_rp::gpio::{self, Input, Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, PIO0};
 use embassy_rp::pio::{InterruptHandler, Pio};
@@ -72,7 +67,7 @@ use smart_leds::colors;
 use {defmt_rtt as _, panic_probe as _};
 
 // 8 x 32 2D LED panel
-const NUM_LEDS: usize = 120;
+const NUM_LEDS: usize = 256;
 const SEGMENT_LENGTH: usize = 8;
 const SEGMENT_LAYOUT: strip::Layout = strip::Layout::ZigZag;
 const FPS_TARGET: i32 = 60;
@@ -107,12 +102,10 @@ enum EffectState {
     Wheel,
     #[default]
     OneColour,
-    Comets,
     HFireGrid,
     VFireGrid,
     H2FireGrid,
     V2FireGrid,
-    Fire,
 }
 impl defmt::Format for EffectState {
     fn format(&self, fmt: Formatter) {
@@ -120,12 +113,10 @@ impl defmt::Format for EffectState {
             EffectState::Random => defmt::write!(fmt, "Random"),
             EffectState::Wheel => defmt::write!(fmt, "Wheel"),
             EffectState::OneColour => defmt::write!(fmt, "OneColour"),
-            EffectState::Comets => defmt::write!(fmt, "Comets"),
             EffectState::HFireGrid => defmt::write!(fmt, "HFireGrid"),
             EffectState::VFireGrid => defmt::write!(fmt, "VFireGrid"),
             EffectState::H2FireGrid => defmt::write!(fmt, "H2FireGrid"),
             EffectState::V2FireGrid => defmt::write!(fmt, "V2FireGrid"),
-            EffectState::Fire => defmt::write!(fmt, "Fire"),
         }
     }
 }
@@ -158,7 +149,6 @@ async fn main(spawner: Spawner) {
     let mut random_effect = effect::Random::<NUM_LEDS>::new(&strip, None);
     let mut wheel_effect = effect::Wheel::new(None);
     let mut onecolour_effect = effect::OneColour::new(colors::BLACK);
-    let mut comets_effect = effect::Comets::new(&strip);
     let mut h_firegrid_effect = effect::FireGrid::<HFIREGRID_COLS, HFIREGRID_ROWS>::new(
         &strip,
         None,
@@ -183,7 +173,6 @@ async fn main(spawner: Spawner) {
         None,
         effect::GridDirection::Vertical,
     );
-    let mut fire_effect = effect::Fire::<NUM_LEDS>::new(&strip, None, None);
     let mut effect = EffectState::default();
     let mut btn_id: u8;
     loop {
@@ -215,8 +204,7 @@ async fn main(spawner: Spawner) {
             EffectState::OneColour => {
                 onecolour_effect.nextframe(&mut strip).unwrap();
                 if btn_id == 1 {
-                    effect = EffectState::Comets;
-                    spawner.spawn(unwrap!(comets::comets_task(None, None)));
+                    effect = EffectState::HFireGrid;
                 }
                 if btn_id == 2 {
                     if onecolour_effect.get() == colors::BLACK {
@@ -226,46 +214,6 @@ async fn main(spawner: Spawner) {
                         onecolour_effect.set(colors::BLACK);
                         debug!("OneColour BLACK");
                     }
-                }
-            }
-            EffectState::Comets => {
-                comets_effect.nextframe(&mut strip).unwrap();
-                if btn_id == 1 {
-                    comets::COMETS_IN_MSG.signal(comets::CometsInMsg::Stop);
-                    // delay effect change debug message till the TaskEnded signal
-                    btn_id = 0;
-                }
-                let mut launch_signal: bool = false;
-                if comets::COMETS_OUT_MSG.signaled() {
-                    match comets::COMETS_OUT_MSG.wait().await {
-                        comets::CometsOutMsg::Launch => launch_signal = true,
-                        comets::CometsOutMsg::TaskEnded => {
-                            debug!("Comets task ended");
-                            effect = EffectState::HFireGrid;
-                            btn_id = 1; // Trigger effect change debug message
-                        }
-                    }
-                }
-                if btn_id == 2 || launch_signal {
-                    let ttl_pings = RoscRng.next_u32() as u8 % 3;
-                    let direction: effect::CometDirection;
-                    if RoscRng.next_u32() % 2 == 0 {
-                        direction = effect::CometDirection::Up;
-                    } else {
-                        direction = effect::CometDirection::Down;
-                    }
-                    match comets_effect.launch(Some(direction), Some(ttl_pings)) {
-                        Ok(_) => info!(
-                            "Fire in the hole. TTL_pings: {} Dir: {} Comets: {}",
-                            ttl_pings,
-                            direction,
-                            comets_effect.comet_cnt()
-                        ),
-                        Err(_) => warn!(
-                            "Failed to launch. Too many inflight comets {}.",
-                            comets_effect.comet_cnt()
-                        ),
-                    };
                 }
             }
             EffectState::HFireGrid => {
@@ -305,15 +253,6 @@ async fn main(spawner: Spawner) {
             }
             EffectState::V2FireGrid => {
                 v2_firegrid_effect.nextframe(&mut strip).unwrap();
-                if btn_id == 1 {
-                    effect = EffectState::Fire;
-                }
-                if btn_id == 2 {
-                    debug!("btn2 {}", effect);
-                }
-            }
-            EffectState::Fire => {
-                fire_effect.nextframe(&mut strip).unwrap();
                 if btn_id == 1 {
                     effect = EffectState::Random;
                 }

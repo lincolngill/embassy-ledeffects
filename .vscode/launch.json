@@ -20,7 +20,7 @@
       "coreConfigs": [
         {
           "coreIndex": 0,
-          "programBinary": "${command:raspberry-pi-pico.launchTargetPath}",
+          "programBinary": "target/thumbv8m.main-none-eabihf/debug/effect_buttons",
           "rttEnabled": true,
           "svdFile": "${command:raspberry-pi-pico.getSVDPath}",
           "rttChannelFormats": [

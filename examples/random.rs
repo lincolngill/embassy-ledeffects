@@ -44,7 +44,7 @@ use embassy_rp::pio_programs::ws2812::{PioWs2812, PioWs2812Program};
 use embassy_time::Timer;
 use {defmt_rtt as _, panic_probe as _};
 
-const NUM_LEDS: usize = 120;
+const NUM_LEDS: usize = 144;
 const FPS_TARGET: i32 = 60;
 const FPS_ADJUST_SECS: i32 = 5;
 
