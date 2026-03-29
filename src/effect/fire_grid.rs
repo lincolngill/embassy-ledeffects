@@ -1,9 +1,13 @@
+//! Fire effect for a 2D grid of LEDs.
+//!
+//! The grid can be either vertical or horizontal, and the fire effect is applied to each column respectively.
 use crate::Strip;
 use crate::effect::EffectIterator;
 use crate::effect::fire;
 use defmt::Formatter;
 use smart_leds::colors;
 
+/// The FireGrid struct holds a 2D array of heat values, the heating and cooling parameters, and the orientation of the grid relative to the [crate::Strip].
 pub struct FireGrid<const C: usize, const R: usize> {
     cooling: u8,
     pub sparking: u8,
@@ -11,8 +15,11 @@ pub struct FireGrid<const C: usize, const R: usize> {
     pub grid_direction: GridDirection,
 }
 
+///The 2D [FireGrid] orientation with regard to the segments of the [crate::Strip].
 pub enum GridDirection {
+    /// The [crate::Strip] segments are vertical. Each segment being a column.
     Vertical,
+    /// The [crate::Strip] segments are horizontal. Each segment being a row.
     Horizontal,
 }
 
@@ -29,6 +36,10 @@ const DEF_COOLING: u8 = 40;
 const DEF_SPARKING: u8 = 120;
 
 impl<const C: usize, const R: usize> FireGrid<C, R> {
+    /// Creates a new FireGrid effect with the given cooling and sparking values.
+    ///
+    /// The size of the FireGrid heat array is determined by the generic parameters C (columns) and R (rows).
+    /// The total number of heat values (C * R) must not exceed the S, length of the [crate::Strip].
     pub fn new<const S: usize>(
         strip: &Strip<S>,
         cooling: Option<u8>,
@@ -63,10 +74,16 @@ impl<const C: usize, const R: usize> FireGrid<C, R> {
             grid_direction,
         }
     }
+    /// Increases the cooling value by the given amount, up to a maximum of 255.
+    ///
+    /// Returns the new cooling value.
     pub fn inc_cooling(&mut self, cooldown: u8) -> u8 {
         self.cooling = self.cooling.saturating_add(cooldown);
         self.cooling
     }
+    /// Set the cooling amount. Default: 40
+    ///
+    /// Returns the new cooling value.
     pub fn set_cooling(&mut self, cooling: Option<u8>) -> u8 {
         self.cooling = fire::cooling_val(cooling.unwrap_or(DEF_COOLING) as f32, R as f32);
         self.cooling
@@ -74,6 +91,9 @@ impl<const C: usize, const R: usize> FireGrid<C, R> {
 }
 
 impl<const C: usize, const R: usize> EffectIterator for FireGrid<C, R> {
+    /// Generates the next frame of the FireGrid effect by updating the heat values and mapping them to colours on the [crate::Strip].
+    ///
+    /// Uses the [crate::effect::fire] module helper functions to update heat values and map them to colours.
     fn nextframe<const S: usize>(&mut self, strip: &mut Strip<S>) -> Option<()> {
         for c in 0..C {
             fire::update_heat(&mut self.heat[c], self.cooling, self.sparking);

@@ -1,6 +1,6 @@
 //! Fire effect.
 //!
-//! The fire effect has a u8 heat value for each pixel in the [crate:Strip].
+//! The fire effect has a u8 heat value for each pixel in the [crate::Strip].
 //! Each frame of the effect goes through the following steps:
 //! 1. Cool down each heat value by a random amount, up to the cooling [Fire::cooling] value.
 //! 2. Shifts heat values up the [crate::Strip], by averaging each sequence of 3 pixels.

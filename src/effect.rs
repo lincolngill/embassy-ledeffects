@@ -2,30 +2,30 @@
 //!
 //! Each effect is also a crate feature to help minimise the executable size.
 #[cfg(feature = "random")]
-mod random;
+pub mod random;
 use crate::Strip;
 #[cfg(feature = "random")]
 pub use random::Random;
 #[cfg(feature = "wheel")]
-mod wheel;
+pub mod wheel;
 #[cfg(feature = "wheel")]
 pub use wheel::Wheel;
 #[cfg(feature = "onecolour")]
-mod one_colour;
+pub mod one_colour;
 #[cfg(feature = "onecolour")]
 pub use one_colour::OneColour;
 #[cfg(feature = "fire")]
-mod fire;
+pub mod fire;
 #[cfg(feature = "fire")]
 pub use fire::Fire;
 #[cfg(feature = "firegrid")]
-mod fire_grid;
+pub mod fire_grid;
 #[cfg(feature = "firegrid")]
 pub use fire_grid::{FireGrid, GridDirection};
 #[cfg(feature = "colours")]
 mod colours;
 #[cfg(feature = "colours")]
-pub use colours::COLOURS;
+use colours::COLOURS;
 #[cfg(feature = "comets")]
 pub mod comets;
 #[cfg(feature = "comets")]
