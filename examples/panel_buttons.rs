@@ -50,18 +50,14 @@ Effects:
 
 use defmt::*;
 use embassy_executor::Spawner;
-use embassy_ledeffects::{
-    Button, Strip, button_task,
-    effect::{self, EffectIterator},
-    strip,
-};
+use embassy_ledeffects::effect::{self, EffectIterator};
+use embassy_ledeffects::{Button, button};
+use embassy_ledeffects::{Strip, strip};
 use embassy_rp::bind_interrupts;
 use embassy_rp::gpio::{self, Input, Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, PIO0};
 use embassy_rp::pio::{InterruptHandler, Pio};
 use embassy_rp::pio_programs::ws2812::{PioWs2812, PioWs2812Program};
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
-use embassy_sync::signal::Signal;
 use embassy_time::Timer;
 use smart_leds::colors;
 use {defmt_rtt as _, panic_probe as _};
@@ -126,11 +122,11 @@ async fn main(spawner: Spawner) {
 
     spawner.spawn(unwrap!(toggle_led(Output::new(p.PIN_25, Level::Low))));
     spawner.spawn(unwrap!(strip::frame_rate_task(FPS_ADJUST_SECS, FPS_TARGET)));
-    spawner.spawn(unwrap!(button_task(Button::new(
+    spawner.spawn(unwrap!(button::pressed_task(Button::new(
         1,
         Input::new(p.PIN_14, gpio::Pull::Up),
     ))));
-    spawner.spawn(unwrap!(button_task(Button::new(
+    spawner.spawn(unwrap!(button::pressed_task(Button::new(
         2,
         Input::new(p.PIN_15, gpio::Pull::Up),
     ))));
@@ -175,8 +171,8 @@ async fn main(spawner: Spawner) {
     let mut btn_id: u8;
     loop {
         btn_id = 0; // No button pressed
-        if BTN_PRESSED.signaled() {
-            btn_id = BTN_PRESSED.wait().await;
+        if button::PRESSED.signaled() {
+            btn_id = button::PRESSED.wait().await;
         }
         // State machine for EffectState
         match effect {

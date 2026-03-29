@@ -32,7 +32,6 @@ async fn main(spawner: Spawner) {
     let Pio {
         mut common, sm0, ..
     } = Pio::new(p.PIO0, Irqs);
-
     let program = PioWs2812Program::new(&mut common);
     let mut ws2812 = PioWs2812::new(&mut common, sm0, p.DMA_CH0, Irqs, p.PIN_16, &program);
 

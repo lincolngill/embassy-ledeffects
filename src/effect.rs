@@ -31,7 +31,7 @@ pub mod comets;
 #[cfg(feature = "comets")]
 pub use comets::{CometDirection, Comets};
 
-// Triat for generating the next frame of updates on the Strip.
+/// Trait for generating the next frame of updates on the Strip.
 pub trait EffectIterator {
     fn nextframe<const N: usize>(&mut self, strip: &mut Strip<N>) -> Option<()>;
 }
