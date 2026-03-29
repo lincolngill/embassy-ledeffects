@@ -1,3 +1,4 @@
+#![doc = include_str!("../readme.md")]
 #![no_std]
 #![no_main]
 

@@ -51,7 +51,7 @@ Effects:
 use defmt::*;
 use embassy_executor::Spawner;
 use embassy_ledeffects::{
-    Button, Strip,
+    Button, Strip, button_task,
     effect::{self, EffectIterator},
     strip,
 };
@@ -93,8 +93,6 @@ bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => InterruptHandler<PIO0>;
     DMA_IRQ_0 => embassy_rp::dma::InterruptHandler<DMA_CH0>;
 });
-
-static BTN_PRESSED: Signal<ThreadModeRawMutex, u8> = Signal::new();
 
 #[derive(Default)]
 enum EffectState {
@@ -280,14 +278,5 @@ async fn toggle_led(mut led: Output<'static>) {
         //debug!("led off!");
         led.set_low();
         Timer::after_millis(1500).await;
-    }
-}
-
-#[embassy_executor::task(pool_size = 2)]
-async fn button_task(mut btn: Button<'static>) {
-    loop {
-        if btn.level_change().await == Level::Low {
-            BTN_PRESSED.signal(btn.id);
-        }
     }
 }

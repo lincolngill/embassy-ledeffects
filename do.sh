@@ -13,6 +13,7 @@ FFLAG=""
 case $BIN in
     effect_buttons) FFLAG="--features button,random,wheel,onecolour,fire,firegrid,comets" ;;
     random) FFLAG="--features random" ;;
+    comets) FFLAG="--features comets" ;;
     strip_buttons) FFLAG="--features button,random,wheel,onecolour,fire,comets" ;;
     panel_buttons) FFLAG="--features button,random,wheel,onecolour,firegrid" ;;
 esac

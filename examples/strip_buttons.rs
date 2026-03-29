@@ -52,19 +52,15 @@ Effects:
 
 use defmt::*;
 use embassy_executor::Spawner;
-use embassy_ledeffects::{
-    Button, Strip,
-    effect::{self, EffectIterator, comets},
-    strip,
-};
+use embassy_ledeffects::effect::{self, EffectIterator, comets};
+use embassy_ledeffects::{Button, button};
+use embassy_ledeffects::{Strip, strip};
 use embassy_rp::bind_interrupts;
 use embassy_rp::clocks::RoscRng;
 use embassy_rp::gpio::{self, Input, Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, PIO0};
 use embassy_rp::pio::{InterruptHandler, Pio};
 use embassy_rp::pio_programs::ws2812::{PioWs2812, PioWs2812Program};
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
-use embassy_sync::signal::Signal;
 use embassy_time::Timer;
 use smart_leds::colors;
 use {defmt_rtt as _, panic_probe as _};
@@ -77,8 +73,6 @@ bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => InterruptHandler<PIO0>;
     DMA_IRQ_0 => embassy_rp::dma::InterruptHandler<DMA_CH0>;
 });
-
-static BTN_PRESSED: Signal<ThreadModeRawMutex, u8> = Signal::new();
 
 #[derive(Default)]
 enum EffectState {
@@ -108,11 +102,11 @@ async fn main(spawner: Spawner) {
 
     spawner.spawn(unwrap!(toggle_led(Output::new(p.PIN_25, Level::Low))));
     spawner.spawn(unwrap!(strip::frame_rate_task(FPS_ADJUST_SECS, FPS_TARGET)));
-    spawner.spawn(unwrap!(button_task(Button::new(
+    spawner.spawn(unwrap!(button::pressed_task(Button::new(
         1,
         Input::new(p.PIN_14, gpio::Pull::Up),
     ))));
-    spawner.spawn(unwrap!(button_task(Button::new(
+    spawner.spawn(unwrap!(button::pressed_task(Button::new(
         2,
         Input::new(p.PIN_15, gpio::Pull::Up),
     ))));
@@ -135,8 +129,8 @@ async fn main(spawner: Spawner) {
     let mut btn_id: u8;
     loop {
         btn_id = 0; // No button pressed
-        if BTN_PRESSED.signaled() {
-            btn_id = BTN_PRESSED.wait().await;
+        if button::PRESSED.signaled() {
+            btn_id = button::PRESSED.wait().await;
         }
         // State machine for EffectState
         match effect {
@@ -163,7 +157,7 @@ async fn main(spawner: Spawner) {
                 onecolour_effect.nextframe(&mut strip).unwrap();
                 if btn_id == 1 {
                     effect = EffectState::Comets;
-                    spawner.spawn(unwrap!(comets::comets_task(None, None)));
+                    spawner.spawn(unwrap!(comets::launcher_task(None, None)));
                 }
                 if btn_id == 2 {
                     if onecolour_effect.get() == colors::BLACK {
@@ -178,22 +172,13 @@ async fn main(spawner: Spawner) {
             EffectState::Comets => {
                 comets_effect.nextframe(&mut strip).unwrap();
                 if btn_id == 1 {
-                    comets::COMETS_IN_MSG.signal(comets::CometsInMsg::Stop);
-                    // delay effect change debug message till the TaskEnded signal
-                    btn_id = 0;
-                }
-                let mut launch_signal: bool = false;
-                if comets::COMETS_OUT_MSG.signaled() {
-                    match comets::COMETS_OUT_MSG.wait().await {
-                        comets::CometsOutMsg::Launch => launch_signal = true,
-                        comets::CometsOutMsg::TaskEnded => {
-                            debug!("Comets task ended");
-                            effect = EffectState::Fire;
-                            btn_id = 1; // Trigger effect change debug message
-                        }
+                    match comets::stop_launcher_task().await {
+                        Ok(()) => debug!("Comets launcher task ended"),
+                        Err(e) => error!("Failed to stop launcher task: {}", e),
                     }
+                    effect = EffectState::Fire;
                 }
-                if btn_id == 2 || launch_signal {
+                if btn_id == 2 || comets::launch_signaled().await {
                     let ttl_pings = RoscRng.next_u32() as u8 % 3;
                     let direction: effect::CometDirection;
                     if RoscRng.next_u32() % 2 == 0 {
@@ -208,10 +193,7 @@ async fn main(spawner: Spawner) {
                             direction,
                             comets_effect.comet_cnt()
                         ),
-                        Err(_) => warn!(
-                            "Failed to launch. Too many inflight comets {}.",
-                            comets_effect.comet_cnt()
-                        ),
+                        Err(e) => warn!("Failed to launch: {}", e),
                     };
                 }
             }
@@ -244,14 +226,5 @@ async fn toggle_led(mut led: Output<'static>) {
         //debug!("led off!");
         led.set_low();
         Timer::after_millis(1500).await;
-    }
-}
-
-#[embassy_executor::task(pool_size = 2)]
-async fn button_task(mut btn: Button<'static>) {
-    loop {
-        if btn.level_change().await == Level::Low {
-            BTN_PRESSED.signal(btn.id);
-        }
     }
 }

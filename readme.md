@@ -1,6 +1,6 @@
-# Embassy Pico 2 WS2812 LED Strip Effects
+# Embassy Pico 2 WS2812 LED Strip & 2D Panel Effects
 
-LED effects library and binary examples. For Raspberry Pico 2. Using Embassy embedded framework.
+An LED effects library with examples, for Raspberry Pico 2. Using the [Embassy](https://embassy.dev/) embedded framework.
 
 ## Effects
 
@@ -14,8 +14,6 @@ LED effects library and binary examples. For Raspberry Pico 2. Using Embassy emb
 | Comets | Ping up and down the strip | Launch a comet. Random direction and random TTL. |
 
 _More to come_
-
-Refer to effect_button.rs binary for example of all effects.
 
 ## 2D LED Panel
 
@@ -41,9 +39,10 @@ If the segment length = the strip size, the default layout is Continuous, otherw
 > [!NOTE]
 > Currently only the FireGrid effect takes any notice of the strip 2D segmentation.
 
-## Binary Crates
+## Examples
 
 | Example | Description |
 |---------|-------------|
-| effect_buttons.rs | Rotates through all effects and second button adjusts an attribute of the effect. |
-| random.rs | Just the random effect. Simple example. |
+| random.rs | Just the Random effect. Simple example. |
+| strip_buttons.rs | Button 1 - Rotates through all LED strip effects. |
+| panel_buttons.rs | Button 1 - Rotates through all 2D LED panel effects. |

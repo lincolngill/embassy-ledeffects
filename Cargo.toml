@@ -20,6 +20,10 @@ name = "random"
 required-features = ["random"]
 
 [[example]]
+name = "comets"
+required-features = ["comets"]
+
+[[example]]
 name = "strip_buttons"
 required-features = ["button", "random", "wheel", "onecolour", "fire", "comets"]
 

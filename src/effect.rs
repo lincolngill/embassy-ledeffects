@@ -1,3 +1,6 @@
+//! Selection of LED effects.
+//!
+//! Each effect is also a crate feature to help minimise the executable size.
 #[cfg(feature = "random")]
 mod random;
 use crate::Strip;

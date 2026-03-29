@@ -1,7 +1,6 @@
 use smart_leds::{RGB8, colors};
 
-/// See https://en.wikipedia.org/wiki/Web_colors
-
+/// See <https://en.wikipedia.org/wiki/Web_colors>
 pub const COLOURS: [RGB8; 140] = [
     colors::WHITE,
     colors::SILVER,
