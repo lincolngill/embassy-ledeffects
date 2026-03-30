@@ -1,7 +1,7 @@
 //! The Comets effect simulates multiple Comets travelling up and down the LED [crate::Strip].
 //!
 //! Each Comet has a bright (White) head with a trailing tail of diminishing red, green and blue values.
-//! Each Comet travels up and down the LED [crate::Strip] a number of times before dying and disappearing.
+//! Each Comet travels (pings) up and down the LED [crate::Strip] a number of times before dying and disappearing.
 //!
 //! The effect does nothing until the [Comets::launch] function is invoked to start a new Comet.
 //! Multiple Comets can be in-flight at the same time.
@@ -13,57 +13,11 @@
 //!
 //! The [launch_signaled] function is a non-blocking way to check if a launch has been signaled.
 //!
-//! # Example
-//!```rust
-//! #![no_std]
-//! #![no_main]
+//! # Examples
+//! Refer to `examples/comets.rs` for a simply example of the Comets effect.
 //!
-//! use defmt::*;
-//! use embassy_executor::Spawner;
-//! use embassy_ledeffects::effect::{self, EffectIterator, comets};
-//! use embassy_ledeffects::{Strip, strip};
-//! use embassy_rp::bind_interrupts;
-//! use embassy_rp::peripherals::{DMA_CH0, PIO0};
-//! use embassy_rp::pio::{InterruptHandler, Pio};
-//! use embassy_rp::pio_programs::ws2812::{PioWs2812, PioWs2812Program};
-//! use embassy_time::Timer;
-//! use {defmt_rtt as _, panic_probe as _};
-//!
-//! const NUM_LEDS: usize = 144;
-//! const FPS_TARGET: i32 = 60;
-//! const FPS_ADJUST_SECS: i32 = 5;
-//!
-//! bind_interrupts!(struct Irqs {
-//!     PIO0_IRQ_0 => InterruptHandler<PIO0>;
-//!     DMA_IRQ_0 => embassy_rp::dma::InterruptHandler<DMA_CH0>;
-//! });
-//!
-//! #[embassy_executor::main]
-//! async fn main(spawner: Spawner) {
-//!     info!("Comets");
-//!     let p = embassy_rp::init(Default::default());
-//!     spawner.spawn(unwrap!(strip::frame_rate_task(FPS_ADJUST_SECS, FPS_TARGET)));
-//!     spawner.spawn(unwrap!(comets::launcher_task(Some(100), Some(5000))));
-//!
-//!     let Pio {mut common, sm0, ..} = Pio::new(p.PIO0, Irqs);
-//!     let program = PioWs2812Program::new(&mut common);
-//!     let mut ws2812 = PioWs2812::new(&mut common, sm0, p.DMA_CH0, Irqs, p.PIN_16, &program);
-//!
-//!     let mut strip = Strip::<NUM_LEDS>::new(None, None);
-//!     let mut comets_effect = effect::Comets::new(&strip);
-//!     loop {
-//!         comets_effect.nextframe(&mut strip).unwrap();
-//!         if comets::launch_signaled().await {
-//!             match comets_effect.launch(Some(comets::CometDirection::Down), Some(1)) {
-//!                 Ok(_) => info!("Fire in the hole. Comets: {}", comets_effect.comet_cnt()),
-//!                 Err(e) => warn!("Failed to launch: {}", e),
-//!             }
-//!         }
-//!         ws2812.write(&strip.leds).await;
-//!         Timer::after(strip.frame_delay()).await;
-//!     }
-//! }
-//! ```
+//! Refer to `examples/strip_buttons.rs` for an example that launches a Comet both randomly via the [launcher_task] and by a button press.
+//! The launch also selects a random starting direction and a random number of time-to-live pings.
 use crate::Strip;
 use crate::effect::EffectIterator;
 use defmt::Formatter;
@@ -132,7 +86,7 @@ impl Comet {
     }
 }
 
-/// The Comets struct represents all in-flight Comets.
+/// The Comets struct contains all in-flight Comets.
 ///
 /// A maximum of [`MAX_NUM_COMETS`] can be in-flight at once.
 pub struct Comets {
@@ -156,13 +110,13 @@ impl Comets {
     /// Adds a new Comet to the Comets effect
     ///
     /// # Arguments
-    /// * `direction` - Initial direction of travel. Defaults: CometDirection::Up
-    /// * `ttl_pings` - Number of times the Comet will ping back in the other direction when it reaches the end of the strip, before it dies. Default: 0
+    /// * `direction` - Initial direction of travel. Defaults: [CometDirection::Up]
+    /// * `ttl_pings` - Number of times the Comet will ping back in the other direction, before it dies, when it reaches the end of the strip. Default: 0
     ///
-    /// Returns Ok(()) if the new Comet is sucessfully launched.
+    /// Returns `Ok(())` if the new Comet is sucessfully launched.
     ///
     /// # Errors
-    /// Returns Err("Too many Comets") if the in-flight Comets queue is full.
+    /// Returns `Err("Too many Comets")` if the in-flight Comets queue is full.
     pub fn launch(
         &mut self,
         direction: Option<CometDirection>,
@@ -254,7 +208,7 @@ static IN_MSG: Signal<ThreadModeRawMutex, TaskMsg> = Signal::new();
 static OUT_MSG: Signal<ThreadModeRawMutex, TaskMsg> = Signal::new();
 static LAUNCH: Signal<ThreadModeRawMutex, ()> = Signal::new();
 
-/// The launcher_task generates Launch signals at random intervals.
+/// The embassy launcher_task generates Launch signals at random intervals.
 ///
 /// # Arguments
 /// * `min_delay_ms` - The minimum millisecond delay between Launch signals. Default: 200 Minimum: 20
@@ -312,7 +266,7 @@ pub async fn launcher_task(min_delay_ms: Option<u32>, max_delay_ms: Option<u32>)
 /// Returns `Err(embassy_time::TimeoutError)` if the launcher task doesn't respond to the Stop signal in time.
 ///
 /// # Errors
-/// Returns `embassy_time::TimeoutError`` if the comet launcher task doesn't signal it's Ended within 100ms.
+/// Returns [`embassy_time::TimeoutError`] if the comet launcher task doesn't signal it's Ended within 100ms.
 pub async fn stop_launcher_task() -> Result<(), TimeoutError> {
     IN_MSG.signal(TaskMsg::Stop);
     // End the loop if timeout expires or get the expected TaskMsg::Ended
