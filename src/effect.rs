@@ -25,7 +25,7 @@ pub use fire_grid::{FireGrid, GridDirection};
 #[cfg(feature = "colours")]
 mod colours;
 #[cfg(feature = "colours")]
-use colours::COLOURS;
+pub use colours::COLOURS;
 #[cfg(feature = "comets")]
 pub mod comets;
 #[cfg(feature = "comets")]

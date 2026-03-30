@@ -27,6 +27,7 @@
 //!    }
 //! }
 //! ```
+//! Refer to `examples/panel_buttons.rs` and `examples/strip_buttons.rs` for more complete examples of button usage.
 use embassy_rp::gpio::{Input, Level};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::signal::Signal;

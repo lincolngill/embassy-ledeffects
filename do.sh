@@ -14,6 +14,7 @@ case $BIN in
     effect_buttons) FFLAG="--features button,random,wheel,onecolour,fire,firegrid,comets" ;;
     random) FFLAG="--features random" ;;
     comets) FFLAG="--features comets" ;;
+    one_colour) FFLAG="--features onecolour" ;;
     strip_buttons) FFLAG="--features button,random,wheel,onecolour,fire,comets" ;;
     panel_buttons) FFLAG="--features button,random,wheel,onecolour,firegrid" ;;
 esac
@@ -26,5 +27,5 @@ case $CMD in
     embed) fn_run "cargo embed --example $BIN $FFLAG" ;;
     gdbserver) fn_run "probe-rs gdb --chip rp235x" ;;
     gdbclient) fn_run "gdb-multiarch ./target/thumbv8m.main-none-eabihf/debug/examples/$BIN" ;;
-    *) echo "What! CMD=$CMD" >2 ;;
+    *) echo "What! CMD=$CMD" >&2 ;;
 esac

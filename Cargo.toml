@@ -24,6 +24,10 @@ name = "comets"
 required-features = ["comets"]
 
 [[example]]
+name = "one_colour"
+required-features = ["onecolour"]
+
+[[example]]
 name = "strip_buttons"
 required-features = ["button", "random", "wheel", "onecolour", "fire", "comets"]
 
