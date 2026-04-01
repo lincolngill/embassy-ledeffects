@@ -6,7 +6,7 @@ pub struct ColourEntry {
     pub colour: smart_leds::RGB8,
 }
 
-/// Reduce the brightness of a colour by a fixed amount, or increase it to a minimum if it is too dark.
+/// Reduce the brightness of a colour by a fixed amount. Too many colours look white otherwise.
 const fn reduce_colour(c: RGB8) -> RGB8 {
     const REDUCTION: u8 = 70;
     RGB8 {
