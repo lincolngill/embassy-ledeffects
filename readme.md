@@ -4,8 +4,8 @@ An LED effects library with examples, for Raspberry Pico 2. Using the [Embassy](
 
 ## Effects
 
-| Effect | Description | Effect Button 2 |
-|--------|-------------|----------|
+| Effect | Description |
+|--------|-------------|
 | Random | Random colour changes at random times. | Increase random delay per pixel. |
 | Wheel | Rotate each pixel through shades of red, green and blue. | Speed up rotation |
 | OneColour | All pixels set to a single colour. | Alternate between Off (Black) & On (White). |
@@ -41,8 +41,40 @@ If the segment length = the strip size, the default layout is Continuous, otherw
 
 ## Examples
 
-| Example | Description |
-|---------|-------------|
-| random.rs | Just the Random effect. Simple example. |
-| strip_buttons.rs | Button 1 - Rotates through all LED strip effects. |
-| panel_buttons.rs | Button 1 - Rotates through all 2D LED panel effects. |
+### random
+
+Just the Random colour effect. Simple example.
+
+### comets
+
+Simple Comets effect example using the launcher_task with comets going down the strip and pinging back up the strip.
+
+### one_colour
+
+Cycle through all 140 colours. Chaning colour every 2 secs.
+
+Doesn't use the [crate::strip::frame_rate_task] to maintain a target FPS refresh rate. Just changes the colour and waits 2 secs in each loop iteration.
+
+### strip_buttons
+
+All effects relevant for an LED strip. Button 1 changes the effect.
+
+| Effect | Button 2 |
+|--------|----------|
+| Random | Slows down the rate at which LED change colour. |
+| Wheel | Speeds up the cycle throught the rainbow transition. |
+| OneColour | Toggles from BLACK (off) to a random colour. |
+| Comets | Manually launch another Comet. |
+| Fire | Does nothing! |
+
+### panel_buttons
+
+All effects relevant to a 2D LED panel. Button 1 change the effect.
+
+| Effect | Button 2 |
+|--------|----------|
+| Random | Slows down the rate at which LED change colour. |
+| Wheel | Speeds up the cycle throught the rainbow transition. |
+| OneColour | Toggles from BLACK (off) to a random colour. |
+| FireGrid | Increase the cooling to reduce the flame. |
+| FireGrid (smaller than the panel) | Does nothing! |

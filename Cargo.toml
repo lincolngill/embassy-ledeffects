@@ -25,15 +25,30 @@ required-features = ["comets"]
 
 [[example]]
 name = "one_colour"
-required-features = ["onecolour"]
+required-features = ["onecolour", "colours"]
 
 [[example]]
 name = "strip_buttons"
-required-features = ["button", "random", "wheel", "onecolour", "fire", "comets"]
+required-features = [
+    "button",
+    "random",
+    "wheel",
+    "onecolour",
+    "fire",
+    "comets",
+    "colours",
+]
 
 [[example]]
 name = "panel_buttons"
-required-features = ["button", "random", "wheel", "onecolour", "firegrid"]
+required-features = [
+    "button",
+    "random",
+    "wheel",
+    "onecolour",
+    "firegrid",
+    "colours",
+]
 
 [build-dependencies]
 regex = "1.11.0"

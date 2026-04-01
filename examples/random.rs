@@ -74,7 +74,9 @@ async fn main(spawner: Spawner) {
     let mut strip = Strip::<NUM_LEDS>::new(None, None);
     let mut effect = effect::Random::<NUM_LEDS>::new(&strip, None);
     loop {
-        effect.nextframe(&mut strip).unwrap();
+        effect
+            .nextframe(&mut strip)
+            .expect("Failed to generate next Random LED frame");
         ws2812.write(&strip.leds).await;
         Timer::after(strip.frame_delay()).await;
     }

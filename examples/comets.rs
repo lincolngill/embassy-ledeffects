@@ -38,7 +38,9 @@ async fn main(spawner: Spawner) {
     let mut strip = Strip::<NUM_LEDS>::new(None, None);
     let mut comets_effect = effect::Comets::new(&strip);
     loop {
-        comets_effect.nextframe(&mut strip).unwrap();
+        comets_effect
+            .nextframe(&mut strip)
+            .expect("Failed to generate next Comets LED frame");
         if comets::launch_signaled().await {
             match comets_effect.launch(Some(comets::CometDirection::Down), Some(1)) {
                 Ok(_) => info!("Fire in the hole. Comets: {}", comets_effect.comet_cnt()),

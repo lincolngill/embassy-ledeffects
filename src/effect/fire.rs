@@ -29,9 +29,7 @@ impl<const N: usize> Fire<N> {
         const DEF_COOLING: u8 = 40;
         const DEF_SPARKING: u8 = 100;
         // Use size of Strip to make sure Fire is the same size.
-        if N != S {
-            panic!("Fire<{}> must be the same size as Strip<{}>", N, S);
-        }
+        assert!(N == S, "Fire<{}> must be the same size as Strip<{}>", N, S);
         Self {
             cooling: cooling_val(cooling.unwrap_or(DEF_COOLING) as f32, N as f32),
             sparking: sparking.unwrap_or(DEF_SPARKING),

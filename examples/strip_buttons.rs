@@ -1,3 +1,9 @@
+//! All LED strip strip effects.
+//!
+//! * Button 1 - Change the effect.
+//! * Button 2 - Change an attribute of the current effect.
+//!
+//!
 /*
 Main task:
     Applies a single frame effect to the LED strip.
@@ -41,7 +47,7 @@ Effects:
     Wheel - Colour wheel effect.
         Button 2 - Speeds up the effect
     OneColour - All LEDs Black (Off).
-        Button 2 - Changes colour to White (On)
+        Button 2 - Toggle to some random colour.
     Fire - Single strip of fire effect.
     Comets - Ping up and down the strip.
         The comets_task randomly sends launch signals based on a min and max delay period.
@@ -52,7 +58,7 @@ Effects:
 
 use defmt::*;
 use embassy_executor::Spawner;
-use embassy_ledeffects::effect::{self, EffectIterator, comets};
+use embassy_ledeffects::effect::{self, COLOURS, EffectIterator, comets};
 use embassy_ledeffects::{Button, button};
 use embassy_ledeffects::{Strip, strip};
 use embassy_rp::bind_interrupts;
@@ -135,7 +141,9 @@ async fn main(spawner: Spawner) {
         // State machine for EffectState
         match effect {
             EffectState::Random => {
-                random_effect.nextframe(&mut strip).unwrap();
+                random_effect
+                    .nextframe(&mut strip)
+                    .expect("Failed to generate next Random LED frame");
                 if btn_id == 1 {
                     effect = EffectState::Wheel;
                 }
@@ -144,7 +152,9 @@ async fn main(spawner: Spawner) {
                 }
             }
             EffectState::Wheel => {
-                wheel_effect.nextframe(&mut strip).unwrap();
+                wheel_effect
+                    .nextframe(&mut strip)
+                    .expect("Failed to generate next Wheel LED frame");
                 if btn_id == 1 {
                     effect = EffectState::OneColour;
                     onecolour_effect.refresh();
@@ -154,15 +164,19 @@ async fn main(spawner: Spawner) {
                 }
             }
             EffectState::OneColour => {
-                onecolour_effect.nextframe(&mut strip).unwrap();
+                onecolour_effect
+                    .nextframe(&mut strip)
+                    .expect("Failed to generate next OneColour LED frame");
                 if btn_id == 1 {
                     effect = EffectState::Comets;
                     spawner.spawn(unwrap!(comets::launcher_task(None, None)));
                 }
                 if btn_id == 2 {
                     if onecolour_effect.get() == colors::BLACK {
-                        onecolour_effect.set(colors::WHITE);
-                        debug!("OneColour WHITE");
+                        let rn = RoscRng.next_u32();
+                        let ci = rn as usize % COLOURS.len();
+                        onecolour_effect.set(COLOURS[ci].colour);
+                        debug!("OneColour {}", COLOURS[ci].name);
                     } else {
                         onecolour_effect.set(colors::BLACK);
                         debug!("OneColour BLACK");
@@ -170,7 +184,9 @@ async fn main(spawner: Spawner) {
                 }
             }
             EffectState::Comets => {
-                comets_effect.nextframe(&mut strip).unwrap();
+                comets_effect
+                    .nextframe(&mut strip)
+                    .expect("Failed to generate next Comets LED frame");
                 if btn_id == 1 {
                     match comets::stop_launcher_task().await {
                         Ok(()) => debug!("Comets launcher task ended"),
@@ -198,7 +214,9 @@ async fn main(spawner: Spawner) {
                 }
             }
             EffectState::Fire => {
-                fire_effect.nextframe(&mut strip).unwrap();
+                fire_effect
+                    .nextframe(&mut strip)
+                    .expect("Failed to generate next Fire LED frame");
                 if btn_id == 1 {
                     effect = EffectState::Random;
                 }

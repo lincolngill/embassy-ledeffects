@@ -192,7 +192,9 @@ impl EffectIterator for Comets {
         if let Some(c) = self.comets.peek()
             && !c.alive
         {
-            self.comets.dequeue().unwrap();
+            self.comets
+                .dequeue()
+                .expect("Comet queue peeked but failed to dequeue");
         }
         strip.inc_frame_cnt();
         Some(())

@@ -75,7 +75,7 @@ impl<const N: usize> EffectIterator for Random<N> {
             if self.led_timeout[i] < now {
                 let rn = RoscRng.next_u32();
                 let ci = rn as usize % self.colours_cnt;
-                strip.leds[i] = COLOURS[ci];
+                strip.leds[i] = COLOURS[ci].colour;
                 /*
                 strip.leds[i] = RGB8 {
                     r: (rn & 0xFF) as u8,
