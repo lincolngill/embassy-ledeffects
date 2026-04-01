@@ -43,25 +43,25 @@ If the segment length = the strip size, the default layout is Continuous, otherw
 
 ### random
 
-Just the Random colour effect. Simple example.
+Just the Random colour effect. A Simple example.
 
 ### comets
 
-Simple Comets effect example using the launcher_task with comets going down the strip and pinging back up the strip.
+Simple Comets effect example using the random comet [crate::effect::Comets::launcher_task]. Comet launches are random but each comet goes down the strip and pings once, back up the strip.
 
 ### one_colour
 
-Cycle through all 140 colours. Chaning colour every 2 secs.
+Cycle through all 140 colours. Changing colour every 2 secs. Defmt Info messages display the colour name.
 
 Doesn't use the [crate::strip::frame_rate_task] to maintain a target FPS refresh rate. Just changes the colour and waits 2 secs in each loop iteration.
 
 ### strip_buttons
 
-All effects relevant for an LED strip. Button 1 changes the effect.
+All effects relevant for an LED strip. Button 1 changes the effect. Button 2 changes a attribute of the effect.
 
 | Effect | Button 2 |
 |--------|----------|
-| Random | Slows down the rate at which LED change colour. |
+| Random | Slows down the rate at which LEDs change colour. |
 | Wheel | Speeds up the cycle throught the rainbow transition. |
 | OneColour | Toggles from BLACK (off) to a random colour. |
 | Comets | Manually launch another Comet. |
@@ -69,11 +69,11 @@ All effects relevant for an LED strip. Button 1 changes the effect.
 
 ### panel_buttons
 
-All effects relevant to a 2D LED panel. Button 1 change the effect.
+All effects relevant to a 2D LED panel. Button 1 changes the effect. Button 2 changes a attribute of the effect.
 
 | Effect | Button 2 |
 |--------|----------|
-| Random | Slows down the rate at which LED change colour. |
+| Random | Slows down the rate at which LEDs change colour. |
 | Wheel | Speeds up the cycle throught the rainbow transition. |
 | OneColour | Toggles from BLACK (off) to a random colour. |
 | FireGrid | Increase the cooling to reduce the flame. |
